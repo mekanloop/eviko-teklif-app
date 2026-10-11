@@ -148,7 +148,7 @@ export async function sendQuote(id: string): Promise<void> {
   const db = getDb();
   const q = await db.quotes.get(id);
   if (!q || q.durum !== "taslak") return;
-  const live = buildCatalog(await db.products.toArray(), await db.labor.toArray());
+  const live = buildCatalog(await db.products.toArray(), await db.labor.toArray(), await db.cabinets.toArray());
   const now = nowIso();
   q.dondurulmus = freezeCatalog(q, live, now);
   q.durum = "gonderildi";

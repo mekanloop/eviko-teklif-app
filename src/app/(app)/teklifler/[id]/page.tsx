@@ -1,14 +1,15 @@
 "use client";
 
-import { ArrowLeft, Check, Copy, FileDown, GitBranch, Plus, RotateCcw, Send, Trash2, X } from "lucide-react";
+import { ArrowLeft, Check, Copy, FileDown, GitBranch, Plus, RotateCcw, Send, Sparkles, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { QuoteBadge } from "@/components/badges";
+import { PromptModal } from "@/components/PromptModal";
 import { QuoteBuilder, QuoteSettingsPanel, StringListEditor, SummaryPanel, cloneOptionAs } from "@/components/QuoteBuilder";
 import { Badge, Loading, Modal, MoneyField, NumField, PageHeader, Tabs, TextInput, cx } from "@/components/ui";
 import { approveQuote, deleteQuote, rejectQuote, reopenQuote, reviseQuote, sendQuote, updateQuote } from "@/lib/data/actions";
-import { useCatalog, useCustomer, useLabor, useProducts, useProject, useProjectQuotes, useQuote, useTemplates } from "@/lib/data/hooks";
+import { useCabinets, useCatalog, useCustomer, useLabor, useProducts, useProject, useProjectQuotes, useQuote, useTemplates } from "@/lib/data/hooks";
 import { quoteTitle } from "@/lib/data/quote-ops";
 import { calcOption } from "@/lib/engine/calc";
 import { formatTL } from "@/lib/engine/money";
@@ -29,6 +30,7 @@ export default function QuotePage() {
   const quote = useQuote(id);
   const products = useProducts();
   const labor = useLabor();
+  const cabinets = useCabinets();
   const templates = useTemplates();
   const catalog = useCatalog();
   const project = useProject(quote?.projectId ?? "");
@@ -39,10 +41,11 @@ export default function QuotePage() {
   const [approve, setApprove] = useState(false);
   const [secim, setSecim] = useState("");
   const [tab, setTab] = useState<"kapsam" | "metinler" | "revizeler">("kapsam");
+  const [promptAcik, setPromptAcik] = useState(false);
 
   const seri = useMemo(() => (siblings && quote ? siblings.filter((s) => s.rootId === quote.rootId).sort((a, b) => a.revNo - b.revNo) : []), [siblings, quote]);
 
-  if (!quote || !products || !labor || !templates || !catalog) return <Loading />;
+  if (!quote || !products || !labor || !templates || !catalog || !cabinets) return <Loading />;
   const readOnly = quote.durum !== "taslak";
   const aktifOpt = quote.secenekler.find((o) => o.id === optionId) ?? quote.secenekler[0];
   const edit = (fn: (q: Quote) => void) => updateQuote(quote.id, fn);
@@ -92,6 +95,7 @@ export default function QuotePage() {
         sub={<span className="inline-flex flex-wrap items-center gap-2"><QuoteBadge durum={quote.durum} /> <span>{formatTarih(quote.tarih)}</span>{quote.dondurulmus && <Badge tone="bronze">Fiyatlar donduruldu</Badge>}</span>}
         actions={
           <>
+            <button className="btn btn-ghost" onClick={() => setPromptAcik(true)}><Sparkles size={18} /> Görsel prompt</button>
             <Link href={`/teklifler/${quote.id}/yazdir`} className="btn btn-ghost"><FileDown size={18} /> PDF / Yazdır</Link>
             {quote.durum === "taslak" && <button className="btn btn-primary" onClick={gonder}><Send size={18} /> Gönderildi yap</button>}
             {quote.durum === "gonderildi" && (
@@ -149,7 +153,7 @@ export default function QuotePage() {
           )}
 
           <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
-            <QuoteBuilder quote={quote} products={products} labor={labor} templates={templates} catalog={catalog} optionId={aktifOpt.id} presentation={presentation} />
+            <QuoteBuilder quote={quote} products={products} cabinets={cabinets} labor={labor} templates={templates} catalog={catalog} optionId={aktifOpt.id} presentation={presentation} />
             <aside><SummaryPanel quote={quote} catalog={catalog} optionId={aktifOpt.id} presentation={presentation} onTogglePresentation={() => setPresentation(!presentation)} /></aside>
           </div>
         </div>
@@ -206,6 +210,8 @@ export default function QuotePage() {
           })}
         </div>
       )}
+
+      {promptAcik && <PromptModal mekanlar={aktifOpt.mekanlar} products={products} cabinets={cabinets} onClose={() => setPromptAcik(false)} />}
 
       {approve && (
         <Modal title="Teklifi onayla" onClose={() => setApprove(false)} footer={<><button className="btn btn-ghost" onClick={() => setApprove(false)}>Vazgeç</button><button className="btn btn-accent" disabled={!secim} onClick={onayla}>Onayla ve projeye bağla</button></>}>

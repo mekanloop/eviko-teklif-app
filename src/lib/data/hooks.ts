@@ -13,6 +13,9 @@ export function useSettings() {
 export function useProducts() {
   return useLiveQuery(() => getDb().products.toArray(), []);
 }
+export function useCabinets() {
+  return useLiveQuery(async () => (await getDb().cabinets.toArray()).sort((a, b) => a.ad.localeCompare(b.ad, "tr")), []);
+}
 export function useLabor() {
   return useLiveQuery(() => getDb().labor.toArray(), []);
 }
@@ -75,7 +78,8 @@ export function useFiles(projectId: string) {
 export function useCatalog(): Catalog | undefined {
   const products = useProducts();
   const labor = useLabor();
-  return useMemo(() => (products && labor ? buildCatalog(products, labor) : undefined), [products, labor]);
+  const cabinets = useCabinets();
+  return useMemo(() => (products && labor && cabinets ? buildCatalog(products, labor, cabinets) : undefined), [products, labor, cabinets]);
 }
 
 export type { Quote };

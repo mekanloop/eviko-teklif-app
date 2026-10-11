@@ -2,6 +2,7 @@
 
 import { Download, Percent, Plus, Search, Upload } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { CabinetManager } from "@/components/CabinetManager";
 import { TemplateManager } from "@/components/TemplateManager";
 import { Badge, DatalistOptions, Empty, Field, Loading, Modal, MoneyField, NumField, PageHeader, Select, Tabs, TextArea, TextInput, Toggle } from "@/components/ui";
 import { getDb } from "@/lib/db/schema";
@@ -47,10 +48,11 @@ function parseCsv(text: string): string[][] {
 export default function PricesPage() {
   const products = useProducts();
   const labor = useLabor();
-  const [tab, setTab] = useState<"urun" | "usta" | "kalem">("urun");
+  const [tab, setTab] = useState<"urun" | "dolap" | "usta" | "kalem">("urun");
   useEffect(() => {
     if (location.hash === "#kalemler") setTab("kalem");
     else if (location.hash === "#ustalar") setTab("usta");
+    else if (location.hash === "#dolaplar") setTab("dolap");
   }, []);
   const [q, setQ] = useState("");
   const [ted, setTed] = useState("");
@@ -158,7 +160,7 @@ export default function PricesPage() {
           ) : undefined
         }
       />
-      <Tabs value={tab} onChange={setTab} tabs={[{ value: "urun", label: "Ürünler", count: products.length }, { value: "usta", label: "Ustalar / yevmiye", count: eksikUsta }, { value: "kalem", label: "İş kalemleri" }]} />
+      <Tabs value={tab} onChange={setTab} tabs={[{ value: "urun", label: "Ürünler", count: products.length }, { value: "dolap", label: "Dolap kataloğu" }, { value: "usta", label: "Ustalar / yevmiye", count: eksikUsta }, { value: "kalem", label: "İş kalemleri" }]} />
 
       {tab === "urun" && (
         <>
@@ -183,7 +185,7 @@ export default function PricesPage() {
                   <tbody className="divide-y divide-navy-50">
                     {list.map((p) => (
                       <tr key={p.id} className="cursor-pointer hover:bg-navy-50" onClick={() => setEdit(p)}>
-                        <td className="td"><div className="font-semibold text-navy-800">{p.ad}</div>{p.kod && <div className="text-xs text-navy-400">{p.kod}</div>}</td>
+                        <td className="td"><div className="font-semibold text-navy-800">{p.ad}</div>{(p.kod || p.renk || p.ebat) && <div className="text-xs text-navy-400">{[p.kod, p.ebat, p.renk, p.yuzey].filter(Boolean).join(" · ")}</div>}</td>
                         <td className="td text-navy-600">{p.tedarikci || "—"}</td>
                         <td className="td text-navy-600">{p.kategori || "—"}</td>
                         <td className="td text-right font-bold">{p.netAlis > 0 ? formatTL(p.netAlis) : <Badge tone="amber">Fiyat yok</Badge>}</td>
@@ -199,6 +201,7 @@ export default function PricesPage() {
       )}
 
       {tab === "kalem" && <TemplateManager />}
+      {tab === "dolap" && <CabinetManager />}
 
       {tab === "usta" && (
         <div className="card divide-y divide-navy-50">
@@ -241,6 +244,9 @@ export default function PricesPage() {
             <Field label="Birim"><Select value={edit.birim} onChange={(v) => setEdit({ ...edit, birim: v })} options={BIRIMLER} /></Field>
             <Field label="Net alış fiyatı (KDV hariç)"><MoneyField value={edit.netAlis} onChange={(k) => setEdit({ ...edit, netAlis: k })} /></Field>
             <Field label="Kutu başına m²" hint="Seramikte doluysa miktar tam kutuya yuvarlanır"><NumField value={edit.kutuM2} onChange={(v) => setEdit({ ...edit, kutuM2: v })} suffix="m²" /></Field>
+            <Field label="Renk / desen" hint="Görsel prompt için"><TextInput value={edit.renk ?? ""} onChange={(v) => setEdit({ ...edit, renk: v })} placeholder="Antrasit, ceviz…" /></Field>
+            <Field label="Ebat"><TextInput value={edit.ebat ?? ""} onChange={(v) => setEdit({ ...edit, ebat: v })} placeholder="60x60" /></Field>
+            <Field label="Yüzey" className="sm:col-span-2"><TextInput value={edit.yuzey ?? ""} onChange={(v) => setEdit({ ...edit, yuzey: v })} placeholder="Mat, parlak, yarı mat, ahşap görünümlü…" /></Field>
             <Field label="Notlar" className="sm:col-span-2"><TextArea rows={2} value={edit.notlar ?? ""} onChange={(v) => setEdit({ ...edit, notlar: v })} /></Field>
             <div className="sm:col-span-2"><Toggle checked={edit.aktif} onChange={(v) => setEdit({ ...edit, aktif: v })} label="Aktif (tekliflerde seçilebilir)" /></div>
           </div>

@@ -1,7 +1,7 @@
 import { getDb } from "../db/schema";
 
 const TABLES = [
-  "products", "labor", "templates", "customers", "projects", "quotes", "payments",
+  "products", "cabinets", "labor", "templates", "customers", "projects", "quotes", "payments",
   "extraJobs", "deliveries", "handovers", "expenses", "events", "settings",
 ] as const;
 

@@ -1,9 +1,11 @@
 import type {
+  Cabinet,
   Frozen,
   Id,
   Kurus,
   LineDef,
   Mekan,
+  MekanDolap,
   Product,
   LaborType,
   Quote,
@@ -16,33 +18,41 @@ import { round2, withMarkup } from "./money";
 export interface Catalog {
   urunler: Record<Id, Pick<Product, "netAlis" | "kutuM2" | "ad"> & { tedarikci?: string }>;
   ustalar: Record<Id, Pick<LaborType, "yevmiye" | "ad">>;
+  dolaplar?: Record<Id, { fiyatM2: Kurus; ad: string }>;
 }
 
-export function buildCatalog(products: Product[], labor: LaborType[]): Catalog {
+export function buildCatalog(products: Product[], labor: LaborType[], cabinets: Cabinet[] = []): Catalog {
   const urunler: Catalog["urunler"] = {};
   for (const p of products) urunler[p.id] = { netAlis: p.netAlis, kutuM2: p.kutuM2, ad: p.ad, tedarikci: p.tedarikci };
   const ustalar: Catalog["ustalar"] = {};
   for (const l of labor) ustalar[l.id] = { yevmiye: l.yevmiye, ad: l.ad };
-  return { urunler, ustalar };
+  const dolaplar: NonNullable<Catalog["dolaplar"]> = {};
+  for (const c of cabinets) dolaplar[c.id] = { fiyatM2: c.fiyatM2, ad: c.ad };
+  return { urunler, ustalar, dolaplar };
 }
 
 /** Teklif dondurulmuşsa o anki fiyatları, değilse güncel kataloğu kullanır. */
 export function catalogFor(frozen: Frozen | undefined, live: Catalog): Catalog {
   if (!frozen) return live;
-  return { urunler: frozen.urunler, ustalar: frozen.ustalar };
+  return { urunler: frozen.urunler, ustalar: frozen.ustalar, dolaplar: frozen.dolaplar ?? live.dolaplar };
 }
 
 export function freezeCatalog(quote: Quote, live: Catalog, now: string): Frozen {
   const urunler: Frozen["urunler"] = {};
   const ustalar: Frozen["ustalar"] = {};
+  const dolaplar: NonNullable<Frozen["dolaplar"]> = {};
   for (const opt of quote.secenekler)
-    for (const m of opt.mekanlar)
+    for (const m of opt.mekanlar) {
+      for (const d of m.dolaplar ?? []) {
+        if (d.cabinetId && live.dolaplar?.[d.cabinetId]) dolaplar[d.cabinetId] = live.dolaplar[d.cabinetId];
+      }
       for (const it of m.kalemler)
         for (const l of it.satirlar) {
           if (l.productId && live.urunler[l.productId]) urunler[l.productId] = live.urunler[l.productId];
           if (l.laborTypeId && live.ustalar[l.laborTypeId]) ustalar[l.laborTypeId] = live.ustalar[l.laborTypeId];
         }
-  return { tarih: now, urunler, ustalar };
+    }
+  return { tarih: now, urunler, ustalar, dolaplar };
 }
 
 /* -------------------------------- Ölçüler --------------------------------- */
@@ -97,11 +107,37 @@ export interface ItemResult {
   eksikFiyat: number;
 }
 
+export interface DolapResult {
+  id: Id;
+  ad: string;
+  aktif: boolean;
+  m2: number;
+  fiyatM2: Kurus;
+  maliyet: Kurus;
+  satis: Kurus;
+  eksikFiyat: boolean;
+}
+
+/** Dolap alanı (m²). Elle girilmediyse ön yüz alanı = genişlik × yükseklik × adet. */
+export function dolapM2(d: Pick<MekanDolap, "genislik" | "yukseklik" | "adet" | "m2Override">): number {
+  const adet = d.adet > 0 ? d.adet : 1;
+  if (d.m2Override != null && d.m2Override > 0) return round2(d.m2Override);
+  return round2(((n0(d.genislik) * n0(d.yukseklik)) / 10000) * adet);
+}
+
+export function calcDolap(d: MekanDolap, cat: Catalog, karMalzemeYuzde: number): DolapResult {
+  const fiyat = d.cabinetId ? (cat.dolaplar?.[d.cabinetId]?.fiyatM2 ?? 0) : 0;
+  const m2 = dolapM2(d);
+  const maliyet = Math.round(m2 * fiyat);
+  return { id: d.id, ad: d.ad, aktif: d.aktif, m2, fiyatM2: fiyat, maliyet, satis: withMarkup(maliyet, karMalzemeYuzde), eksikFiyat: fiyat <= 0 };
+}
+
 export interface MekanResult {
   id: Id;
   ad: string;
   olculer: Olculer;
   kalemler: ItemResult[];
+  dolaplar: DolapResult[];
   maliyet: Kurus;
   /** Yuvarlama/indirim öncesi satış */
   satis: Kurus;
@@ -285,9 +321,17 @@ export function calcOption(
       iscilikMaliyet += k.iscilikMaliyet;
       eksik += k.eksikFiyat;
     }
+    const dolaplar = (m.dolaplar ?? []).map((d) => calcDolap(d, cat, ayar.karMalzemeYuzde));
+    for (const d of dolaplar) {
+      if (!d.aktif) continue;
+      mMaliyet += d.maliyet;
+      mSatis += d.satis;
+      malzemeMaliyet += d.maliyet;
+      if (d.eksikFiyat) eksik++;
+    }
     maliyet += mMaliyet;
     satisOnce += mSatis;
-    return { id: m.id, ad: m.ad, olculer: o, kalemler, maliyet: mMaliyet, satis: mSatis, musteriTutar: mSatis };
+    return { id: m.id, ad: m.ad, olculer: o, kalemler, dolaplar, maliyet: mMaliyet, satis: mSatis, musteriTutar: mSatis };
   });
 
   const indirim = Math.max(0, Math.min(option.indirim || 0, satisOnce));

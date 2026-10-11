@@ -1,7 +1,7 @@
 import { getDb } from "../db/schema";
 import { nowIso, todayIso } from "../db/ids";
 import { defaultSettings } from "../db/seed";
-import type { Product, Mekan, QuoteItem } from "../types";
+import type { Cabinet, Product, Mekan, QuoteItem } from "../types";
 import { itemFromTemplate, newQuote } from "./quote-ops";
 
 /** Örnek veriler SADECE denemek içindir; fiyatlar uydurmadır. Ayarlar > Örnek veri bölümünden silinir. */
@@ -15,13 +15,13 @@ const DEMO_YEVMIYE: Record<string, number> = {
   "usta-7": 150000,
 };
 
-function p(id: string, tedarikci: string, kategori: string, ad: string, birim: Product["birim"], liraTL: number, kutuM2?: number): Product {
-  return { id: `demo-${id}`, tedarikci, kategori, kod: "", ad, birim, netAlis: Math.round(liraTL * 100), kutuM2, notlar: "ÖRNEK VERİ", aktif: true, guncellendi: nowIso() };
+function p(id: string, tedarikci: string, kategori: string, ad: string, birim: Product["birim"], liraTL: number, kutuM2?: number, gorsel?: { renk?: string; ebat?: string; yuzey?: string }): Product {
+  return { id: `demo-${id}`, tedarikci, kategori, kod: "", ad, birim, netAlis: Math.round(liraTL * 100), kutuM2, ...gorsel, notlar: "ÖRNEK VERİ", aktif: true, guncellendi: nowIso() };
 }
 
 const DEMO_PRODUCTS: Product[] = [
-  p("vitra-seramik", "Vitra", "Seramik", "Vitra Rustic 60x60 Zemin/Duvar Seramiği", "m2", 480, 1.44),
-  p("eko-seramik", "Ekonomik", "Seramik", "Ekonomik Seramik 30x60", "m2", 210, 1.62),
+  p("vitra-seramik", "Vitra", "Seramik", "Vitra Rustic 60x60 Zemin/Duvar Seramiği", "m2", 480, 1.44, { renk: "Antrasit", ebat: "60x60", yuzey: "mat" }),
+  p("eko-seramik", "Ekonomik", "Seramik", "Ekonomik Seramik 30x60", "m2", 210, 1.62, { renk: "Açık gri", ebat: "30x60", yuzey: "parlak" }),
   p("yapistirici", "Genel", "Yapı malzemesi", "Yapıştırıcı + derz dolgusu (m² karşılığı)", "m2", 85),
   p("yalitim", "Genel", "Yapı malzemesi", "Su yalıtımı (m² karşılığı)", "m2", 120),
   p("boya", "Genel", "Boya", "Permolit boya + astar (m² karşılığı)", "m2", 35),
@@ -62,6 +62,8 @@ export async function loadDemo(): Promise<void> {
   const labor = await db.labor.toArray();
   for (const l of labor) if (l.yevmiye === 0 && DEMO_YEVMIYE[l.id]) await db.labor.update(l.id, { yevmiye: DEMO_YEVMIYE[l.id] });
   await db.products.bulkPut(DEMO_PRODUCTS);
+  const dolapModel: Cabinet = { id: "demo-dolap1", ad: "Nova Lavabo Dolabı", tedarikci: "Örnek Mobilya", kategori: "Lavabo dolabı", fiyatM2: 850000, renkler: ["Beyaz mat", "Antrasit", "Ceviz"], notlar: "ÖRNEK VERİ", aktif: true, guncellendi: nowIso() };
+  await db.cabinets.put(dolapModel);
 
   const settings = (await db.settings.get("main")) ?? defaultSettings();
   const templates = await db.templates.toArray();
@@ -98,6 +100,13 @@ export async function loadDemo(): Promise<void> {
       ["Normal tuvalet"], ["Evye altı (lavabo) dolabı"], ["Ekonomik sınıf batarya ve armatürler"], ["Tavan permolit boya"],
     ]),
   };
+  ust.dolaplar = [{ id: "demo-d1", cabinetId: "demo-dolap1", ad: "Lavabo dolabı", renk: "Antrasit", genislik: 80, yukseklik: 60, derinlik: 45, adet: 1, aktif: true }];
+  ust.acilimlar = [{ id: "demo-a1", tip: "kapi", duvar: "alt", ofset: 20, genislik: 80 }, { id: "demo-a2", tip: "pencere", duvar: "ust", ofset: 40, genislik: 100 }];
+  ust.ogeler = [
+    { id: "demo-o1", tur: "klozet", ad: "Klozet", x: 20, y: 5, w: 40, h: 70, rot: 0 },
+    { id: "demo-o2", tur: "dolap", ad: "Lavabo dolabı", x: 120, y: 5, w: 80, h: 45, rot: 0, dolapId: "demo-d1" },
+    { id: "demo-o3", tur: "dusakabin", ad: "Duşakabin", x: 200, y: 200, w: 90, h: 90, rot: 0 },
+  ];
   // Alt kattaki ekonomik seramik ürünü
   alt.kalemler.forEach((k) => k.satirlar.forEach((l) => { if (l.label === "Zemin/duvar seramiği") l.productId = "demo-eko-seramik"; }));
 
@@ -118,6 +127,7 @@ export async function removeDemo(): Promise<void> {
   const db = getDb();
   const demoId = (x: { id: string }) => x.id.startsWith("demo-");
   await db.products.filter(demoId).delete();
+  await db.cabinets.filter(demoId).delete();
   await db.customers.filter(demoId).delete();
   const pids = (await db.projects.filter(demoId).toArray()).map((x) => x.id);
   for (const pid of pids) {

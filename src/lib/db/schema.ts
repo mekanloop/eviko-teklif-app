@@ -1,6 +1,7 @@
 import Dexie, { type EntityTable } from "dexie";
 import type {
   CalEvent,
+  Cabinet,
   Customer,
   Delivery,
   Expense,
@@ -22,6 +23,7 @@ import type {
  */
 export class EvikoDB extends Dexie {
   products!: EntityTable<Product, "id">;
+  cabinets!: EntityTable<Cabinet, "id">;
   labor!: EntityTable<LaborType, "id">;
   templates!: EntityTable<WorkTemplate, "id">;
   customers!: EntityTable<Customer, "id">;
@@ -53,6 +55,9 @@ export class EvikoDB extends Dexie {
       events: "id, tarih, projectId",
       files: "id, projectId",
       settings: "id",
+    });
+    this.version(2).stores({
+      cabinets: "id, ad, aktif",
     });
   }
 }

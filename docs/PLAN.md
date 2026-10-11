@@ -76,8 +76,18 @@ Güvenlik: tüm tablolarda Row Level Security, müşteri linki yalnızca tek tek
 | 3 | Onay, ek işler, mal teslim, iş teslim, imza, ödeme planı ve alınan ödemeler, dosyalar, takvim |
 | 4 | Gerçek harcama, kâr raporu, dışa aktarma/yedek |
 | 5 | Mutfak, komple daire, serbest kalem şablonları |
+| 6 | Görselleştirme (yapıldı, yerel): ölçülü kroki (sürükle-bırak yerleşim), dolap kataloğu + m² maliyeti, ChatGPT için master prompt ve açı promptları, çıktıya kroki sayfası |
+
+## 5b. Görselleştirme kararları
+
+- Uygulama içinde 3D/fotogerçekçi render yapılmaz. Müşteriye ölçülü kroki (2D) gösterilir; fotogerçekçi görseller için uygulama ChatGPT'ye verilecek ana şartname ve 6 açı promptu üretir (ölçü, yerleşim, malzeme adı/renk/ebat/yüzey, dolap modeli ve rengi). Kroki PNG olarak indirilip referans görsel diye eklenir.
+- Dolap: katalogdan model + renk seçilir, ölçü (cm) girilir; alan × m² fiyatı maliyete eklenir. Varsayılan alan = genişlik × yükseklik × adet (ön yüz); asıl hesap kuralı kullanıcıdan teyit edilecek, her dolapta m² elle de girilebilir.
+- Dolap 3D modelleri "yüklenecek, sadece rengi değişecek" olarak istendi; format ve kullanım şekli netleşince eklenir.
 
 ## 6. Açık konular
+
+- Dolap m² hesap kuralı (ön yüz mü, toplam yüzey mi, kapak/gövde ayrı mı).
+- PDF kataloglar: ürün adı, fiyat, renk, ebat ayıklanıp CSV'ye çevrilecek ve içe aktarılacak.
 
 - Firma bilgileri: unvan, vergi dairesi/no, adres, telefon, IBAN, logo dosyası.
 - Usta türleri ve yevmiye değerleri.

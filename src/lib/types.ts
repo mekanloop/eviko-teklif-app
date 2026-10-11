@@ -32,6 +32,26 @@ export interface Product {
   netAlis: Kurus;
   /** Kutu başına m² (seramik gibi kutu ile satılan ürünler). Doluysa miktar tam kutuya yuvarlanır. */
   kutuM2?: number;
+  /** Görsel/prompt için: renk, ebat, yüzey (mat/parlak vb.) */
+  renk?: string;
+  ebat?: string;
+  yuzey?: string;
+  notlar?: string;
+  aktif: boolean;
+  guncellendi: string;
+}
+
+/** Dolap kataloğu: model + m² fiyatı + renk seçenekleri */
+export interface Cabinet {
+  id: Id;
+  ad: string;
+  tedarikci: string;
+  kategori: string;
+  /** m² başına net fiyat (KDV hariç) */
+  fiyatM2: Kurus;
+  renkler: string[];
+  /** Model görseli (data URL) */
+  gorsel?: string;
   notlar?: string;
   aktif: boolean;
   guncellendi: string;
@@ -117,6 +137,63 @@ export interface QuoteItem {
   satirlar: LineDef[];
 }
 
+export type PlanOgeTuru = "klozet" | "lavabo" | "dusakabin" | "kuvet" | "camasir" | "havlu" | "dolap" | "diger";
+export const PLAN_OGE_ETIKET: Record<PlanOgeTuru, string> = {
+  klozet: "Klozet",
+  lavabo: "Lavabo",
+  dusakabin: "Duşakabin",
+  kuvet: "Küvet",
+  camasir: "Çamaşır makinesi",
+  havlu: "Havluluk",
+  dolap: "Dolap",
+  diger: "Diğer",
+};
+
+/** Krokideki yerleşim öğesi. Birim: cm, orijin: odanın sol-üst köşesi. */
+export interface PlanOge {
+  id: Id;
+  tur: PlanOgeTuru;
+  ad: string;
+  x: number;
+  y: number;
+  /** Yatayda (x yönünde) boyut, döndürmeden önce */
+  w: number;
+  /** Dikeyde (y yönünde) boyut */
+  h: number;
+  rot: 0 | 90 | 180 | 270;
+  /** tur=dolap ise Mekan.dolaplar içindeki kayıt */
+  dolapId?: Id;
+}
+
+export type DuvarYonu = "ust" | "sag" | "alt" | "sol";
+export const DUVAR_ETIKET: Record<DuvarYonu, string> = { ust: "Üst duvar", sag: "Sağ duvar", alt: "Alt duvar", sol: "Sol duvar" };
+
+export interface PlanAcilim {
+  id: Id;
+  tip: "kapi" | "pencere" | "surgulu";
+  duvar: DuvarYonu;
+  /** Duvarın başından (üst/alt duvarda soldan, sağ/sol duvarda yukarıdan) cm */
+  ofset: number;
+  genislik: number;
+}
+
+/** Teklife dahil dolap: katalogdaki modelden, ölçüsü ve rengiyle. */
+export interface MekanDolap {
+  id: Id;
+  cabinetId?: Id;
+  ad: string;
+  renk: string;
+  /** cm */
+  genislik: number;
+  yukseklik: number;
+  derinlik: number;
+  adet: number;
+  /** Elle girilen toplam m² (boşsa genişlik × yükseklik ön yüz alanı hesaplanır) */
+  m2Override?: number;
+  aktif: boolean;
+  not?: string;
+}
+
 export interface Mekan {
   id: Id;
   ad: string;
@@ -130,6 +207,9 @@ export interface Mekan {
   zeminOverride?: number;
   duvarOverride?: number;
   kalemler: QuoteItem[];
+  dolaplar?: MekanDolap[];
+  acilimlar?: PlanAcilim[];
+  ogeler?: PlanOge[];
 }
 
 export interface QuoteOption {
@@ -169,6 +249,7 @@ export interface Frozen {
   tarih: string;
   urunler: Record<Id, { netAlis: Kurus; kutuM2?: number; ad: string; tedarikci?: string }>;
   ustalar: Record<Id, { yevmiye: Kurus; ad: string }>;
+  dolaplar?: Record<Id, { fiyatM2: Kurus; ad: string }>;
 }
 
 export interface PlanKalemi {
@@ -201,6 +282,8 @@ export interface Quote {
   kdvModu: KdvModu;
   kdvOrani: number;
   mekanToplamGoster: boolean;
+  /** Teklif çıktısına mekan krokileri eklensin */
+  krokiGoster?: boolean;
   ayarlar: QuoteSettings;
   secenekler: QuoteOption[];
   secilenSecenekId?: Id;

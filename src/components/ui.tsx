@@ -21,7 +21,7 @@ export function PageHeader(props: { title: string; sub?: ReactNode; actions?: Re
   );
 }
 
-export function Modal(props: { title: string; onClose: () => void; children: ReactNode; wide?: boolean; footer?: ReactNode }) {
+export function Modal(props: { title: string; onClose: () => void; children: ReactNode; wide?: boolean; xl?: boolean; footer?: ReactNode }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && props.onClose();
     window.addEventListener("keydown", onKey);
@@ -34,7 +34,7 @@ export function Modal(props: { title: string; onClose: () => void; children: Rea
   }, [props]);
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-navy-900/50 p-0 sm:items-center sm:p-4" onMouseDown={(e) => e.target === e.currentTarget && props.onClose()}>
-      <div className={cx("flex max-h-[92vh] w-full flex-col rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl", props.wide ? "sm:max-w-3xl" : "sm:max-w-xl")}>
+      <div className={cx("flex max-h-[92vh] w-full flex-col rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl", props.xl ? "sm:max-w-6xl" : props.wide ? "sm:max-w-3xl" : "sm:max-w-xl")}>
         <div className="flex items-center justify-between border-b border-navy-100 px-5 py-4">
           <h2 className="text-lg font-bold text-navy-800">{props.title}</h2>
           <button className="btn btn-ghost btn-sm !min-h-[40px] !w-10 !px-0" onClick={props.onClose} aria-label="Kapat">

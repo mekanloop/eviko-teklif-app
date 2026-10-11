@@ -138,7 +138,7 @@ const SEEDS: Seed[] = [
     mekan: WET,
     acik: false,
     metin: "Gömme rezervuarlı tuvalet (tam set) temini ve montajı.",
-    satirlar: () => [mal("Gömme rezervuarlı klozet seti", "takim", "sabit", 1), isc("Montaj işçiliği", USTA.tesisat, 0.5, 1)],
+    satirlar: () => [{ ...mal("Gömme rezervuarlı klozet seti", "takim", "sabit", 1), metindeGoster: true }, isc("Montaj işçiliği", USTA.tesisat, 0.5, 1)],
   },
   {
     ad: "Normal tuvalet",
@@ -146,7 +146,7 @@ const SEEDS: Seed[] = [
     mekan: WET,
     acik: false,
     metin: "Normal (gömme rezervuarsız) tuvalet temini ve montajı.",
-    satirlar: () => [mal("Klozet seti", "takim", "sabit", 1), isc("Montaj işçiliği", USTA.tesisat, 0.5, 1)],
+    satirlar: () => [{ ...mal("Klozet seti", "takim", "sabit", 1), metindeGoster: true }, isc("Montaj işçiliği", USTA.tesisat, 0.5, 1)],
   },
   {
     ad: "Evye altı (lavabo) dolabı",
@@ -170,7 +170,7 @@ const SEEDS: Seed[] = [
     mekan: ["banyo"],
     acik: false,
     metin: "Duşakabinin yeniden yapılması (yeni duşakabin temini ve montajı).",
-    satirlar: () => [mal("Duşakabin", "adet", "sabit", 1), isc("Montaj işçiliği", USTA.montaj, 1, 1)],
+    satirlar: () => [{ ...mal("Duşakabin", "adet", "sabit", 1), metindeGoster: true }, isc("Montaj işçiliği", USTA.montaj, 1, 1)],
   },
   {
     ad: "Ankastre duş seti ve batarya",
@@ -178,7 +178,7 @@ const SEEDS: Seed[] = [
     mekan: ["banyo"],
     acik: false,
     metin: "Ankastre duş seti ve ankastre batarya temini ve montajı.",
-    satirlar: () => [mal("Ankastre duş seti", "takim", "sabit", 1), mal("Ankastre batarya", "adet", "sabit", 1), isc("Montaj işçiliği", USTA.tesisat, 1, 1)],
+    satirlar: () => [{ ...mal("Ankastre duş seti", "takim", "sabit", 1), metindeGoster: true }, { ...mal("Ankastre batarya", "adet", "sabit", 1), metindeGoster: true }, isc("Montaj işçiliği", USTA.tesisat, 1, 1)],
   },
   {
     ad: "Kompakt batarya ve duş seti",
@@ -186,7 +186,7 @@ const SEEDS: Seed[] = [
     mekan: ["banyo"],
     acik: false,
     metin: "Kompakt batarya ve kompakt duş seti temini ve montajı.",
-    satirlar: () => [mal("Kompakt batarya", "adet", "sabit", 1), mal("Kompakt duş seti", "takim", "sabit", 1), isc("Montaj işçiliği", USTA.tesisat, 0.5, 1)],
+    satirlar: () => [{ ...mal("Kompakt batarya", "adet", "sabit", 1), metindeGoster: true }, { ...mal("Kompakt duş seti", "takim", "sabit", 1), metindeGoster: true }, isc("Montaj işçiliği", USTA.tesisat, 0.5, 1)],
   },
   {
     ad: "Ekonomik sınıf batarya ve armatürler",
@@ -194,7 +194,7 @@ const SEEDS: Seed[] = [
     mekan: WET,
     acik: false,
     metin: "Diğer batarya ve armatürler ekonomik sınıf, marka/model EVİKO Dekorasyon tarafından belirlenecektir.",
-    satirlar: () => [mal("Lavabo bataryası ve armatürler", "takim", "sabit", 1), isc("Montaj işçiliği", USTA.tesisat, 0.5, 1)],
+    satirlar: () => [{ ...mal("Lavabo bataryası ve armatürler", "takim", "sabit", 1), metindeGoster: true }, isc("Montaj işçiliği", USTA.tesisat, 0.5, 1)],
   },
   {
     ad: "Banyo / WC genişletme",
@@ -211,7 +211,7 @@ const SEEDS: Seed[] = [
     mekan: ["banyo", "wc", "oda"],
     acik: false,
     metin: "Gömme sürgülü (gizli) kapı için yerin açılması ve kapının temini ve montajı.",
-    satirlar: () => [mal("Gömme sürgülü kapı ve kasası", "adet", "sabit", 1), isc("Yer açma ve montaj işçiliği", USTA.montaj, 1.5, 1)],
+    satirlar: () => [{ ...mal("Gömme sürgülü kapı ve kasası", "adet", "sabit", 1), metindeGoster: true }, isc("Yer açma ve montaj işçiliği", USTA.montaj, 1.5, 1)],
   },
   {
     ad: "Tavan permolit boya",

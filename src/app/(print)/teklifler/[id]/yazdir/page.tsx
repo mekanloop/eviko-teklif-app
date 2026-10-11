@@ -1,9 +1,10 @@
 "use client";
 
 import { useParams } from "next/navigation";
+import { Kroki } from "@/components/Kroki";
 import { InfoGrid, Letterhead, PrintToolbar, SheetFooter, SignatureBlocks } from "@/components/print";
 import { Loading } from "@/components/ui";
-import { useCatalog, useCustomer, usePayments, useQuote, useSettings } from "@/lib/data/hooks";
+import { useCabinets, useCatalog, useCustomer, usePayments, useQuote, useSettings } from "@/lib/data/hooks";
 import { quoteTitle } from "@/lib/data/quote-ops";
 import { calcOption, catalogFor } from "@/lib/engine/calc";
 import { formatTL } from "@/lib/engine/money";
@@ -16,8 +17,9 @@ export default function QuotePrintPage() {
   const settings = useSettings();
   const customer = useCustomer(quote?.customerId ?? "");
   const catalog = useCatalog();
+  const cabinets = useCabinets();
   const payments = usePayments(quote?.projectId ?? "");
-  if (!quote || !settings || !catalog || !payments) return <Loading />;
+  if (!quote || !settings || !catalog || !payments || !cabinets) return <Loading />;
 
   const cat = catalogFor(quote.dondurulmus, catalog);
   const sonuclar = quote.secenekler.map((o) => ({ o, r: calcOption(quote, o, catalog) }));
@@ -90,6 +92,11 @@ export default function QuotePrintPage() {
                       const t = renderItemText(k, m, cat);
                       return t ? <li key={k.id}>{t}</li> : null;
                     })}
+                    {(m.dolaplar ?? []).filter((d) => d.aktif).map((d) => {
+                      const kat = cabinets.find((c) => c.id === d.cabinetId);
+                      const model = kat ? kat.ad : "";
+                      return <li key={d.id}>{d.ad}{d.adet > 1 ? ` (${d.adet} adet)` : ""} — {[model, d.renk].filter(Boolean).join(", ")}{model || d.renk ? ", " : ""}{d.genislik}×{d.yukseklik}×{d.derinlik} cm, temin ve montaj dahildir.</li>;
+                    })}
                     {settings.mekanKapanisMetni && <li>{settings.mekanKapanisMetni}</li>}
                   </ul>
                 </div>
@@ -117,6 +124,23 @@ export default function QuotePrintPage() {
         </div>
         <SheetFooter settings={settings} right={quote.no} />
       </div>
+
+      {/* Kroki sayfası */}
+      {quote.krokiGoster && (
+        <div className="sheet">
+          <Letterhead settings={settings} title="KROKİ / YERLEŞİM" lines={[`Teklif No: ${quote.no}`, `Tarih: ${formatTarih(quote.tarih)}`]} />
+          {(sonuclar[0]?.o.mekanlar ?? []).map((m) => (
+            <div key={m.id} className="keep" style={{ marginBottom: 14 }}>
+              <div className="band"><span>{m.ad.toLocaleUpperCase("tr")} — ÖLÇÜLÜ YERLEŞİM PLANI</span></div>
+              <div style={{ border: "1px solid #c9d2e3", marginTop: 6 }}>
+                <Kroki mekan={m} className="block h-auto w-full" />
+              </div>
+            </div>
+          ))}
+          <p style={{ fontSize: "8.5pt", color: "#6580ad" }}>Krokiler bilgilendirme amaçlıdır; kesin ölçüler yerinde alınan ölçülere göre uygulanır.</p>
+          <SheetFooter settings={settings} right={quote.no} />
+        </div>
+      )}
 
       {/* Sayfa 2: Ödeme planı ve şartlar */}
       <div className="sheet">

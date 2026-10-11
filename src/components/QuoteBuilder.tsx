@@ -1,20 +1,23 @@
 "use client";
 
-import { ChevronDown, ChevronUp, Copy, Eye, EyeOff, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Copy, Eye, EyeOff, Plus, Ruler, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { KrokiEditor } from "./KrokiEditor";
 import { LineEditor } from "./LineEditor";
 import { Badge, Field, MoneyField, NumField, Select, TextArea, TextInput, Toggle, cx } from "./ui";
 import { updateQuote } from "@/lib/data/actions";
 import { blankItem, cloneOption, itemFromTemplate, newMekan } from "@/lib/data/quote-ops";
-import { calcOption, catalogFor, olculer, type Catalog, type LineResult } from "@/lib/engine/calc";
+import { calcOption, catalogFor, dolapM2, olculer, type Catalog, type LineResult } from "@/lib/engine/calc";
 import { formatSayi, formatTL } from "@/lib/engine/money";
 import { renderItemText } from "@/lib/engine/text";
 import { uid } from "@/lib/db/ids";
 import {
   MEKAN_ETIKET,
+  type Cabinet,
   type LaborType,
   type LineDef,
   type Mekan,
+  type MekanDolap,
   type MekanTuru,
   type Product,
   type Quote,
@@ -34,6 +37,7 @@ const TURLER = (Object.keys(MEKAN_ETIKET) as MekanTuru[]).map((v) => ({ value: v
 export function QuoteBuilder(props: {
   quote: Quote;
   products: Product[];
+  cabinets: Cabinet[];
   labor: LaborType[];
   templates: WorkTemplate[];
   catalog: Catalog;
@@ -65,6 +69,8 @@ export function QuoteBuilder(props: {
     });
 
   const [yeniTur, setYeniTur] = useState<MekanTuru>("banyo");
+  const [krokiId, setKrokiId] = useState<string | null>(null);
+  const krokiMekan = option.mekanlar.find((x) => x.id === krokiId);
 
   return (
     <div className="space-y-4">
@@ -97,6 +103,7 @@ export function QuoteBuilder(props: {
                 <div className="text-lg font-extrabold">{formatTL(mr.satis)}</div>
                 {!props.presentation && <div className="text-xs text-navy-200">Maliyet {formatTL(mr.maliyet)}</div>}
               </div>
+              <button className="btn btn-sm !bg-white/10 text-white hover:!bg-white/20" title="Mekan krokisi ve yerleşim" onClick={() => setKrokiId(m.id)}><Ruler size={16} /> Kroki</button>
               {!readOnly && (
                 <div className="flex gap-1">
                   <button className="btn btn-sm !bg-white/10 text-white hover:!bg-white/20" title="Mekanı kopyala" onClick={() => editOption((op) => op.mekanlar.splice(mi + 1, 0, { ...structuredClone(m), id: uid(), ad: `${m.ad} (kopya)`, kalemler: m.kalemler.map((k) => ({ ...structuredClone(k), id: uid(), satirlar: k.satirlar.map((l) => ({ ...l, id: uid() })) })) }))}><Copy size={16} /></button>
@@ -122,6 +129,68 @@ export function QuoteBuilder(props: {
                 <Badge tone="bronze">Zemin+duvar {formatSayi(o.toplam)} m²</Badge>
                 <Badge>Tavan {formatSayi(o.tavan)} m²</Badge>
                 <Badge>Çevre {formatSayi(o.cevre)} mt</Badge>
+              </div>
+            </div>
+
+            {/* Dolaplar */}
+            <div className="border-b border-navy-100 p-4">
+              <div className="mb-2 flex items-center justify-between">
+                <div>
+                  <div className="font-semibold text-navy-800">Dolaplar</div>
+                  <div className="text-xs text-navy-400">Katalogdan model ve renk seçin; ölçü (cm) girin. Alan × m² fiyatı maliyete eklenir.</div>
+                </div>
+                {!readOnly && (
+                  <button className="btn btn-ghost btn-sm" onClick={() => editMekan(m.id, (x) => (x.dolaplar = [...(x.dolaplar ?? []), { id: uid(), ad: "Lavabo dolabı", renk: "", genislik: 80, yukseklik: 60, derinlik: 45, adet: 1, aktif: true }]))}><Plus size={16} /> Dolap ekle</button>
+                )}
+              </div>
+              {(m.dolaplar ?? []).length === 0 && <div className="rounded-lg bg-navy-50 p-3 text-sm text-navy-400">Bu mekanda dolap yok.</div>}
+              <div className="space-y-2">
+                {(m.dolaplar ?? []).map((d) => {
+                  const dr = mr.dolaplar.find((x) => x.id === d.id);
+                  const kat = props.cabinets.find((c) => c.id === d.cabinetId);
+                  const editDolap = (fn: (x: MekanDolap) => void) =>
+                    editMekan(m.id, (mm) => {
+                      const x = (mm.dolaplar ?? []).find((y) => y.id === d.id);
+                      if (!x) return;
+                      fn(x);
+                      const oge = (mm.ogeler ?? []).find((o) => o.dolapId === x.id);
+                      if (oge) { oge.ad = x.ad; oge.w = x.genislik; oge.h = x.derinlik; }
+                    });
+                  return (
+                    <div key={d.id} className={cx("rounded-xl border p-3", d.aktif ? "border-bronze-200 bg-bronze-50/40" : "border-navy-100 bg-navy-50/50", dr?.eksikFiyat && d.aktif && "!border-amber-300")}>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Toggle disabled={readOnly} checked={d.aktif} onChange={(v) => editDolap((x) => (x.aktif = v))} />
+                        <div className="min-w-[140px] flex-1"><TextInput disabled={readOnly} value={d.ad} onChange={(v) => editDolap((x) => (x.ad = v))} placeholder="Dolap adı" /></div>
+                        <div className="min-w-[180px] flex-1">
+                          <Select disabled={readOnly} value={d.cabinetId ?? ""} onChange={(v) => editDolap((x) => { x.cabinetId = v || undefined; x.renk = ""; })} placeholder="Katalogdan model seç" options={props.cabinets.filter((c) => c.aktif || c.id === d.cabinetId).map((c) => ({ value: c.id, label: `${c.ad} (${formatTL(c.fiyatM2)}/m²)` }))} />
+                        </div>
+                        <div className="min-w-[140px] flex-1">
+                          {kat && kat.renkler.length > 0 ? (
+                            <Select disabled={readOnly} value={d.renk} onChange={(v) => editDolap((x) => (x.renk = v))} placeholder="Renk seç" options={kat.renkler.map((r) => ({ value: r, label: r }))} />
+                          ) : (
+                            <TextInput disabled={readOnly} value={d.renk} onChange={(v) => editDolap((x) => (x.renk = v))} placeholder="Renk" />
+                          )}
+                        </div>
+                        {!readOnly && <button className="btn btn-ghost btn-sm !px-2 text-red-600" onClick={() => editMekan(m.id, (x) => { x.dolaplar = (x.dolaplar ?? []).filter((y) => y.id !== d.id); x.ogeler = (x.ogeler ?? []).filter((o) => o.dolapId !== d.id); })} aria-label="Dolabı sil"><Trash2 size={16} /></button>}
+                      </div>
+                      <div className="mt-2 grid grid-cols-2 items-end gap-2 sm:grid-cols-6">
+                        <Field label="Genişlik"><NumField disabled={readOnly} suffix="cm" value={d.genislik} onChange={(v) => editDolap((x) => (x.genislik = v ?? 0))} /></Field>
+                        <Field label="Yükseklik"><NumField disabled={readOnly} suffix="cm" value={d.yukseklik} onChange={(v) => editDolap((x) => (x.yukseklik = v ?? 0))} /></Field>
+                        <Field label="Derinlik"><NumField disabled={readOnly} suffix="cm" value={d.derinlik} onChange={(v) => editDolap((x) => (x.derinlik = v ?? 0))} /></Field>
+                        <Field label="Adet"><NumField disabled={readOnly} value={d.adet} onChange={(v) => editDolap((x) => (x.adet = v ?? 1))} /></Field>
+                        <Field label="m² (elle)" className="sm:col-span-2"><NumField disabled={readOnly} suffix="m²" placeholder={formatSayi(dolapM2({ ...d, m2Override: undefined }))} value={d.m2Override} onChange={(v) => editDolap((x) => (x.m2Override = v))} /></Field>
+                      </div>
+                      {dr && (
+                        <div className="mt-2 flex flex-wrap items-center justify-end gap-x-4 text-xs text-navy-500">
+                          {dr.eksikFiyat && d.aktif && <span className="mr-auto font-semibold text-amber-700">⚠ Modelin m² fiyatı girilmemiş</span>}
+                          <span>{formatSayi(dr.m2)} m²</span>
+                          {!props.presentation && <span>Maliyet <b className="text-navy-700">{formatTL(dr.maliyet)}</b></span>}
+                          <span>Satış <b className="text-navy-800">{formatTL(dr.satis)}</b></span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -229,6 +298,10 @@ export function QuoteBuilder(props: {
         </div>
       )}
 
+      {krokiMekan && (
+        <KrokiEditor mekan={krokiMekan} readOnly={readOnly} onClose={() => setKrokiId(null)} onChange={(fn) => editMekan(krokiMekan.id, fn)} />
+      )}
+
       {/* İndirim */}
       <div className="card flex flex-wrap items-center justify-between gap-3 p-4">
         <div>
@@ -305,6 +378,7 @@ export function QuoteSettingsPanel({ quote }: { quote: Quote }) {
         </Field>
         {quote.kdvModu === "kdvli" && <Field label="KDV oranı"><NumField disabled={readOnly} suffix="%" value={quote.kdvOrani} onChange={(v) => edit((q) => (q.kdvOrani = v ?? 0))} /></Field>}
         <div className="flex items-end"><Toggle disabled={readOnly} checked={quote.mekanToplamGoster} onChange={(v) => edit((q) => (q.mekanToplamGoster = v))} label="Mekan toplamlarını göster" /></div>
+        <div className="flex items-end"><Toggle disabled={readOnly} checked={!!quote.krokiGoster} onChange={(v) => edit((q) => (q.krokiGoster = v))} label="Çıktıya kroki ekle" /></div>
       </div>
       <div className="grid gap-3 border-t border-navy-100 pt-4 sm:grid-cols-2 lg:grid-cols-4">
         <Field label="Malzeme kârı"><NumField disabled={readOnly} suffix="%" value={quote.ayarlar.karMalzemeYuzde} onChange={(v) => edit((q) => (q.ayarlar.karMalzemeYuzde = v ?? 0))} /></Field>
