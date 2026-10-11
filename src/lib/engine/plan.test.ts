@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { dolapM2, calcDolap, calcOption, type Catalog } from "./calc";
-import { clampOge, enYakinDuvar, odaCm, ogeBoyut, snap, yeniOge } from "./plan";
+import { dolapM2, calcDolap, calcOption, olculer, type Catalog } from "./calc";
+import { clampOge, duvaraYasla, enYakinDuvar, ogeEkAlan, odaCm, ogeBoyut, snap, yeniOge } from "./plan";
 import { aciPromptlari, masterSartname } from "./prompt";
 import type { Mekan, PlanOge, Product, Quote } from "../types";
 
@@ -88,5 +88,47 @@ describe("prompt üretici", () => {
     expect(a).toHaveLength(6);
     expect(a[0].prompt).toContain("ANA ŞARTNAME");
     expect(a[0].prompt).toContain("renk Antrasit");
+  });
+});
+
+describe("ek duvar ve çıkıntı", () => {
+  // 2 x 3 m oda, 2.6 m yükseklik: zemin 6 m², çevre 10 m, duvar 26 m²
+  const oda = { en: 2, boy: 3, yukseklik: 2.6, dusumM2: 0 };
+  const perde: PlanOge = { id: "p", tur: "duvar", ad: "Perde duvar", x: 50, y: 0, w: 10, h: 100, rot: 0 }; // üst duvardan 100 cm sarkan, 10 cm kalın
+  it("duvara yaslama sadece o ekseni değiştirir", () => {
+    const o = duvaraYasla({ x: 80, y: 120, w: 40, h: 70, rot: 0 as const }, "sol", 200, 300);
+    expect(o).toMatchObject({ x: 0, y: 120 });
+    expect(duvaraYasla({ x: 80, y: 120, w: 40, h: 70, rot: 0 as const }, "alt", 200, 300).y).toBe(230);
+  });
+  it("serbest yüzey: çevre eksi duvara dayalı kenar", () => {
+    const a = ogeEkAlan(perde, 200, 300, 2.6);
+    expect(a.serbestCm).toBe(210); // 2*(10+100) - 10
+    expect(a.duvarM2).toBeCloseTo(5.46, 5);
+    expect(a.zeminM2).toBeCloseTo(0.1, 5);
+  });
+  it("yansıt kapalıysa metraj değişmez", () => {
+    const o = olculer({ ...oda, ogeler: [perde] });
+    expect(o.zemin).toBe(6);
+    expect(o.duvar).toBe(26);
+  });
+  it("yansıt açıksa duvar artar, zemin azalır", () => {
+    const o = olculer({ ...oda, ogeler: [{ ...perde, m2Ekle: true }] });
+    expect(o.duvar).toBe(31.46);
+    expect(o.zemin).toBe(5.9);
+    expect(o.toplam).toBe(37.36);
+  });
+  it("öğeye özel yükseklik kullanılır", () => {
+    const o = olculer({ ...oda, ogeler: [{ ...perde, m2Ekle: true, yukseklik: 100 }] });
+    expect(o.duvar).toBe(28.1); // 26 + 2.1 m x 1.0 m
+  });
+  it("elle girilen m² değişmez", () => {
+    const o = olculer({ ...oda, zeminOverride: 7, duvarOverride: 30, ogeler: [{ ...perde, m2Ekle: true }] });
+    expect(o.zemin).toBe(7);
+    expect(o.duvar).toBe(30);
+  });
+  it("kolon: duvara dayalı kenar düşülür", () => {
+    const kolon: PlanOge = { id: "k", tur: "cikinti", ad: "Kolon", x: 0, y: 100, w: 30, h: 30, rot: 0, m2Ekle: true };
+    const a = ogeEkAlan(kolon, 200, 300, 2.6);
+    expect(a.serbestCm).toBe(90); // 2*(30+30) - 30
   });
 });

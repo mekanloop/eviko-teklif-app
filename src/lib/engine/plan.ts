@@ -9,6 +9,8 @@ export const OGE_VARSAYILAN: Record<PlanOgeTuru, { ad: string; w: number; h: num
   camasir: { ad: "Çamaşır makinesi", w: 60, h: 60 },
   havlu: { ad: "Havluluk", w: 50, h: 12 },
   dolap: { ad: "Dolap", w: 60, h: 45 },
+  duvar: { ad: "Ek duvar", w: 100, h: 10 },
+  cikinti: { ad: "Çıkıntı", w: 30, h: 30 },
   diger: { ad: "Öğe", w: 50, h: 50 },
 };
 
@@ -87,6 +89,8 @@ const OGE_EN: Record<PlanOgeTuru, string> = {
   camasir: "washing machine",
   havlu: "towel rail",
   dolap: "cabinet",
+  duvar: "partition wall (extra wall)",
+  cikinti: "protruding column / boxed-out section",
   diger: "item",
 };
 
@@ -101,4 +105,29 @@ export function ogeMetni(o: PlanOge, W: number, H: number, dil: "en" | "tr", ekA
     return `${ad}: against the ${duvarAdi(y.duvar, "en")} wall (gap ${y.bosluk} cm), starting ${y.boyunca} cm from the ${duvarAdi(y.kenar, "en")} corner, ${dim}`;
   }
   return `${ad}: ${duvarAdi(y.duvar, "tr")} duvara dayalı (boşluk ${y.bosluk} cm), ${duvarAdi(y.kenar, "tr")} köşeden ${y.boyunca} cm, ${dimTr}`;
+}
+
+/** Öğeyi seçilen duvara yaslar (sadece o eksende kaydırır). */
+export function duvaraYasla<T extends Pick<PlanOge, "x" | "y" | "w" | "h" | "rot">>(o: T, duvar: DuvarYonu, W: number, H: number): T {
+  const b = ogeBoyut(o);
+  switch (duvar) {
+    case "sol": return { ...o, x: 0 };
+    case "sag": return { ...o, x: Math.max(0, W - b.w) };
+    case "ust": return { ...o, y: 0 };
+    default: return { ...o, y: Math.max(0, H - b.h) };
+  }
+}
+
+/**
+ * Ek duvar / çıkıntının mekanın metrajına etkisi (m²).
+ * Serbest yüzey = çevre − duvara dayalı kenar; yükseklik = öğenin yüksekliği ya da mekan yüksekliği.
+ * Taban alanı zeminden düşülür.
+ */
+export function ogeEkAlan(o: PlanOge, W: number, H: number, odaYukseklikM: number): { duvarM2: number; zeminM2: number; serbestCm: number } {
+  const b = ogeBoyut(o);
+  const y = enYakinDuvar(o, W, H);
+  const duvarBoyunca = y.duvar === "ust" || y.duvar === "alt" ? b.w : b.h;
+  const serbestCm = Math.max(0, 2 * (b.w + b.h) - duvarBoyunca);
+  const yukM = o.yukseklik && o.yukseklik > 0 ? o.yukseklik / 100 : odaYukseklikM;
+  return { duvarM2: (serbestCm / 100) * yukM, zeminM2: (b.w * b.h) / 10000, serbestCm };
 }

@@ -106,6 +106,8 @@ export async function loadDemo(): Promise<void> {
     { id: "demo-o1", tur: "klozet", ad: "Klozet", x: 20, y: 5, w: 40, h: 70, rot: 0 },
     { id: "demo-o2", tur: "dolap", ad: "Lavabo dolabı", x: 120, y: 5, w: 80, h: 45, rot: 0, dolapId: "demo-d1" },
     { id: "demo-o3", tur: "dusakabin", ad: "Duşakabin", x: 200, y: 200, w: 90, h: 90, rot: 0 },
+    { id: "demo-o4", tur: "duvar", ad: "Perde duvar", x: 250, y: 150, w: 50, h: 10, rot: 0 },
+    { id: "demo-o5", tur: "cikinti", ad: "Kolon", x: 0, y: 150, w: 30, h: 30, rot: 0 },
   ];
   // Alt kattaki ekonomik seramik ürünü
   alt.kalemler.forEach((k) => k.satirlar.forEach((l) => { if (l.label === "Zemin/duvar seramiği") l.productId = "demo-eko-seramik"; }));

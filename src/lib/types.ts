@@ -137,7 +137,7 @@ export interface QuoteItem {
   satirlar: LineDef[];
 }
 
-export type PlanOgeTuru = "klozet" | "lavabo" | "dusakabin" | "kuvet" | "camasir" | "havlu" | "dolap" | "diger";
+export type PlanOgeTuru = "klozet" | "lavabo" | "dusakabin" | "kuvet" | "camasir" | "havlu" | "dolap" | "duvar" | "cikinti" | "diger";
 export const PLAN_OGE_ETIKET: Record<PlanOgeTuru, string> = {
   klozet: "Klozet",
   lavabo: "Lavabo",
@@ -146,6 +146,8 @@ export const PLAN_OGE_ETIKET: Record<PlanOgeTuru, string> = {
   camasir: "Çamaşır makinesi",
   havlu: "Havluluk",
   dolap: "Dolap",
+  duvar: "Ek duvar / perde duvar",
+  cikinti: "Çıkıntı / kolon",
   diger: "Diğer",
 };
 
@@ -163,6 +165,10 @@ export interface PlanOge {
   rot: 0 | 90 | 180 | 270;
   /** tur=dolap ise Mekan.dolaplar içindeki kayıt */
   dolapId?: Id;
+  /** Ek duvar/çıkıntı yüksekliği (cm); boşsa mekan yüksekliği */
+  yukseklik?: number;
+  /** Ek duvar/çıkıntı yüzeyleri duvar m²'sine, tabanı zemin m²'sinden düşülerek yansıtılsın */
+  m2Ekle?: boolean;
 }
 
 export type DuvarYonu = "ust" | "sag" | "alt" | "sol";

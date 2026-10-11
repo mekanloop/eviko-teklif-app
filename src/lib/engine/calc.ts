@@ -13,6 +13,7 @@ import type {
   QuoteOption,
 } from "../types";
 import { BIRIM_ETIKET } from "../types";
+import { odaCm, ogeEkAlan } from "./plan";
 import { round2, withMarkup } from "./money";
 
 export interface Catalog {
@@ -67,14 +68,26 @@ export interface Olculer {
 
 const n0 = (x: unknown): number => (typeof x === "number" && Number.isFinite(x) && x > 0 ? x : 0);
 
-export function olculer(m: Pick<Mekan, "en" | "boy" | "yukseklik" | "dusumM2" | "zeminOverride" | "duvarOverride">): Olculer {
+export function olculer(m: Pick<Mekan, "en" | "boy" | "yukseklik" | "dusumM2" | "zeminOverride" | "duvarOverride"> & { ogeler?: Mekan["ogeler"] }): Olculer {
   const en = n0(m.en);
   const boy = n0(m.boy);
   const yuk = n0(m.yukseklik);
-  const zemin = round2(m.zeminOverride != null && m.zeminOverride > 0 ? m.zeminOverride : en * boy);
+  const zeminElle = m.zeminOverride != null && m.zeminOverride > 0;
+  const duvarElle = m.duvarOverride != null && m.duvarOverride > 0;
+  // Ek duvar / çıkıntılar: sadece "m²'ye yansıt" işaretliyse ve m² elle girilmemişse
+  let ekDuvar = 0;
+  let ekZemin = 0;
+  const { W, H } = odaCm({ en: m.en, boy: m.boy });
+  for (const o of m.ogeler ?? []) {
+    if (!o.m2Ekle || (o.tur !== "duvar" && o.tur !== "cikinti")) continue;
+    const a = ogeEkAlan(o, W, H, yuk);
+    ekDuvar += a.duvarM2;
+    ekZemin += a.zeminM2;
+  }
+  const zemin = round2(zeminElle ? m.zeminOverride! : Math.max(0, en * boy - ekZemin));
   const cevre = round2(2 * (en + boy));
-  const duvarHesap = Math.max(0, cevre * yuk - n0(m.dusumM2));
-  const duvar = round2(m.duvarOverride != null && m.duvarOverride > 0 ? m.duvarOverride : duvarHesap);
+  const duvarHesap = Math.max(0, cevre * yuk - n0(m.dusumM2) + ekDuvar);
+  const duvar = round2(duvarElle ? m.duvarOverride! : duvarHesap);
   return { zemin, duvar, toplam: round2(zemin + duvar), tavan: zemin, cevre };
 }
 

@@ -12,6 +12,8 @@ const RENK: Record<PlanOgeTuru, { fill: string; stroke: string }> = {
   camasir: { fill: "#eef0f4", stroke: "#6b7690" },
   havlu: { fill: "#f2e8d5", stroke: "#957244" },
   dolap: { fill: "#f2e8d5", stroke: "#957244" },
+  duvar: { fill: "#a9b6cf", stroke: "#1b2a4a" },
+  cikinti: { fill: "#c9d2e3", stroke: "#1b2a4a" },
   diger: { fill: "#eef0f4", stroke: "#6b7690" },
 };
 
@@ -73,6 +75,12 @@ function OgeSekli({ o, bw, bh, ek }: { o: PlanOge; bw: number; bh: number; ek: n
       {o.tur === "dusakabin" && <line x1={0} y1={0} x2={bw} y2={bh} stroke={c.stroke} strokeWidth={ek * 0.3} strokeDasharray={`${ek} ${ek}`} />}
       {o.tur === "klozet" && <ellipse cx={bw / 2} cy={bh * 0.62} rx={bw * 0.38} ry={bh * 0.3} fill="#fff" stroke={c.stroke} strokeWidth={ek * 0.3} />}
       {o.tur === "lavabo" && <ellipse cx={bw / 2} cy={bh / 2} rx={bw * 0.34} ry={bh * 0.3} fill="#fff" stroke={c.stroke} strokeWidth={ek * 0.3} />}
+      {o.tur === "cikinti" && (
+        <>
+          <line x1={0} y1={0} x2={bw} y2={bh} stroke={c.stroke} strokeWidth={ek * 0.3} />
+          <line x1={bw} y1={0} x2={0} y2={bh} stroke={c.stroke} strokeWidth={ek * 0.3} />
+        </>
+      )}
       {o.tur === "dolap" && (
         <>
           <line x1={0} y1={0} x2={bw} y2={bh} stroke={c.stroke} strokeWidth={ek * 0.25} />
@@ -176,8 +184,14 @@ export function Kroki(props: {
               <OgeSekli o={o} bw={o.w} bh={o.h} ek={ek} />
             </g>
             {sel && <rect x={-ek} y={-ek} width={b.w + ek * 2} height={b.h + ek * 2} fill="none" stroke="#b08d57" strokeWidth={ek * 0.8} strokeDasharray={`${ek * 2} ${ek}`} />}
-            <text x={b.w / 2} y={b.h / 2 - fs * 0.1} textAnchor="middle" fontSize={fs * 0.85} fontWeight={700} fill="#1b2a4a">{etiket}</text>
-            <text x={b.w / 2} y={b.h / 2 + fs * 0.95} textAnchor="middle" fontSize={fs * 0.7} fill="#44608f">{b.w}×{b.h}</text>
+            {o.tur === "duvar" || o.tur === "cikinti" ? (
+              <text x={b.w / 2} y={b.h / 2 + fs * 0.3} textAnchor="middle" fontSize={fs * 0.7} fontWeight={700} fill="#1b2a4a" stroke="#fff" strokeWidth={fs * 0.35} paintOrder="stroke">{etiket} {Math.max(b.w, b.h)}×{Math.min(b.w, b.h)}</text>
+            ) : (
+              <>
+                <text x={b.w / 2} y={b.h / 2 - fs * 0.1} textAnchor="middle" fontSize={fs * 0.85} fontWeight={700} fill="#1b2a4a">{etiket}</text>
+                <text x={b.w / 2} y={b.h / 2 + fs * 0.95} textAnchor="middle" fontSize={fs * 0.7} fill="#44608f">{b.w}×{b.h}</text>
+              </>
+            )}
           </g>
         );
       })}

@@ -3,9 +3,11 @@
 import { Download, RotateCw, Trash2 } from "lucide-react";
 import { useRef, useState } from "react";
 import { Kroki, svgToPngBlob } from "./Kroki";
-import { Field, Modal, NumField, Select, TextInput, cx } from "./ui";
+import { Badge, Field, Modal, NumField, Select, TextInput, Toggle, cx } from "./ui";
 import { uid } from "@/lib/db/ids";
-import { OGE_VARSAYILAN, clampOge, odaCm, yeniOge } from "@/lib/engine/plan";
+import { olculer } from "@/lib/engine/calc";
+import { formatSayi } from "@/lib/engine/money";
+import { OGE_VARSAYILAN, clampOge, duvaraYasla, odaCm, ogeEkAlan, yeniOge } from "@/lib/engine/plan";
 import { DUVAR_ETIKET, PLAN_OGE_ETIKET, type DuvarYonu, type Mekan, type PlanAcilim, type PlanOge, type PlanOgeTuru } from "@/lib/types";
 
 const OGE_TURLERI = (Object.keys(PLAN_OGE_ETIKET) as PlanOgeTuru[]).filter((t) => t !== "dolap");
@@ -21,6 +23,9 @@ export function KrokiEditor(props: { mekan: Mekan; readOnly: boolean; onChange: 
   const ogeler = mekan.ogeler ?? [];
   const acilimlar = mekan.acilimlar ?? [];
   const secili = ogeler.find((o) => o.id === sel);
+  const ekYuzey = secili && (secili.tur === "duvar" || secili.tur === "cikinti");
+  const ekAlan = secili && ekYuzey ? ogeEkAlan(secili, W, H, mekan.yukseklik) : undefined;
+  const ol = olculer(mekan);
   const dolapEtiket = Object.fromEntries((mekan.dolaplar ?? []).map((d) => [d.id, d.ad]));
   const etiketler: Record<string, string> = {};
   for (const o of ogeler) if (o.dolapId && dolapEtiket[o.dolapId]) etiketler[o.id] = dolapEtiket[o.dolapId];
@@ -67,6 +72,11 @@ export function KrokiEditor(props: { mekan: Mekan; readOnly: boolean; onChange: 
           <div className="overflow-hidden rounded-xl border border-navy-100 bg-white">
             <Kroki mekan={mekan} interactive={!readOnly} selectedId={sel} onSelect={setSel} etiketler={etiketler} svgRef={svgRef} className="block h-auto max-h-[62vh] w-full" onMove={(id, x, y) => editOge(id, (o) => { o.x = x; o.y = y; })} />
           </div>
+          <div className="mt-2 flex flex-wrap gap-2 text-xs">
+            <Badge tone="blue">Zemin {formatSayi(ol.zemin)} m²</Badge>
+            <Badge tone="blue">Duvar {formatSayi(ol.duvar)} m²</Badge>
+            <Badge tone="bronze">Zemin+duvar {formatSayi(ol.toplam)} m²</Badge>
+          </div>
           <p className="mt-2 text-xs text-navy-400">Öğeleri parmakla sürükleyin (5 cm'e yapışır). Oda ölçüsü teklifteki en × boy'dan gelir ({W} × {H} cm).</p>
         </div>
 
@@ -103,13 +113,35 @@ export function KrokiEditor(props: { mekan: Mekan; readOnly: boolean; onChange: 
                   </div>
                 )}
               </div>
+              {!readOnly && (
+                <div className="mb-2 flex flex-wrap items-center gap-1.5">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-navy-500">Duvara yasla</span>
+                  {(Object.keys(DUVAR_ETIKET) as DuvarYonu[]).map((d) => (
+                    <button key={d} className="btn btn-ghost btn-sm" onClick={() => editOge(secili.id, (o) => Object.assign(o, duvaraYasla(o, d, W, H)))}>{DUVAR_ETIKET[d].replace(" duvar", "")}</button>
+                  ))}
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-2">
                 <Field label="Ad" className="col-span-2"><TextInput disabled={readOnly || !!secili.dolapId} value={etiketler[secili.id] ?? secili.ad} onChange={(v) => editOge(secili.id, (o) => (o.ad = v))} /></Field>
                 <Field label="Soldan (cm)"><NumField disabled={readOnly} value={secili.x} onChange={(v) => editOge(secili.id, (o) => (o.x = v ?? 0))} /></Field>
                 <Field label="Üstten (cm)"><NumField disabled={readOnly} value={secili.y} onChange={(v) => editOge(secili.id, (o) => (o.y = v ?? 0))} /></Field>
-                <Field label="Genişlik (cm)"><NumField disabled={readOnly || !!secili.dolapId} value={secili.w} onChange={(v) => editOge(secili.id, (o) => (o.w = v ?? OGE_VARSAYILAN[o.tur].w))} /></Field>
-                <Field label="Derinlik (cm)"><NumField disabled={readOnly || !!secili.dolapId} value={secili.h} onChange={(v) => editOge(secili.id, (o) => (o.h = v ?? OGE_VARSAYILAN[o.tur].h))} /></Field>
+                <Field label={ekYuzey ? "Uzunluk (cm)" : "Genişlik (cm)"}><NumField disabled={readOnly || !!secili.dolapId} value={secili.w} onChange={(v) => editOge(secili.id, (o) => (o.w = v ?? OGE_VARSAYILAN[o.tur].w))} /></Field>
+                <Field label={ekYuzey ? "Kalınlık / çıkma (cm)" : "Derinlik (cm)"}><NumField disabled={readOnly || !!secili.dolapId} value={secili.h} onChange={(v) => editOge(secili.id, (o) => (o.h = v ?? OGE_VARSAYILAN[o.tur].h))} /></Field>
+                {ekYuzey && (
+                  <Field label="Yükseklik (cm)" hint={`Boşsa mekan yüksekliği (${Math.round(mekan.yukseklik * 100)} cm)`} className="col-span-2"><NumField disabled={readOnly} value={secili.yukseklik} onChange={(v) => editOge(secili.id, (o) => (o.yukseklik = v))} /></Field>
+                )}
               </div>
+              {ekYuzey && ekAlan && (
+                <div className="mt-3 rounded-lg bg-white p-3 text-sm">
+                  <Toggle disabled={readOnly} checked={!!secili.m2Ekle} onChange={(v) => editOge(secili.id, (o) => (o.m2Ekle = v))} label="Seramik metrajına yansıt" />
+                  {((mekan.zeminOverride ?? 0) > 0 || (mekan.duvarOverride ?? 0) > 0) && (
+                    <p className="mt-1 text-xs font-semibold text-amber-700">⚠ Bu mekanda zemin/duvar m² elle girilmiş; elle girilen değer değişmez. Otomatik hesap için teklifte "m² (elle)" alanlarını boşaltın.</p>
+                  )}
+                  <p className="mt-1 text-xs text-navy-500">
+                    Açılırsa duvar m²'ye <b>+{formatSayi(ekAlan.duvarM2)} m²</b> (serbest yüzey {Math.round(ekAlan.serbestCm)} cm × yükseklik), zemin m²'den <b>−{formatSayi(ekAlan.zeminM2)} m²</b> uygulanır. Zemin veya duvar m² elle girildiyse o değer değişmez. Duvara dayalı kenar sayılmaz.
+                  </p>
+                </div>
+              )}
               {secili.dolapId && <p className="mt-2 text-xs text-navy-500">Dolabın ölçüsü teklifteki Dolaplar bölümünden gelir.</p>}
             </div>
           )}
