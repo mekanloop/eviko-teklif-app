@@ -23,6 +23,7 @@ export function LineEditor(props: {
   fireVarsayilan?: number;
 }) {
   const [picking, setPicking] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
   const { lines, readOnly } = props;
 
   const set = (id: string, patch: Partial<LineDef>) => props.onChange(lines.map((l) => (l.id === id ? { ...l, ...patch } : l)));
@@ -64,7 +65,7 @@ export function LineEditor(props: {
                       <NumField disabled={readOnly} value={l.carpan} onChange={(v) => set(l.id, { carpan: v ?? 0 })} suffix={l.basis === "sabit" ? BIRIM_ETIKET[l.birim] : "×"} />
                     </div>
                     {!urun && (
-                      <div className="sm:col-span-4 lg:col-span-2">
+                      <div className="sm:col-span-4 lg:col-span-3">
                         <Select disabled={readOnly} value={l.birim} onChange={(v) => set(l.id, { birim: v })} options={BIRIM_OPT} />
                       </div>
                     )}
@@ -111,13 +112,26 @@ export function LineEditor(props: {
       })}
       {!readOnly && (
         <div className="flex flex-wrap gap-2">
-          <button className="btn btn-ghost btn-sm" onClick={() => props.onChange([...lines, { id: uid(), kind: "malzeme", label: "Malzeme", birim: "adet", basis: "sabit", carpan: 1, fire: false, manuelBirimMaliyet: 0 }])}>
-            <Plus size={16} /> Malzeme satırı
+          <button className="btn btn-accent btn-sm" onClick={() => setAdding(true)}>
+            <Plus size={16} /> Listeden malzeme ekle
+          </button>
+          <button className="btn btn-ghost btn-sm" onClick={() => props.onChange([...lines, { id: uid(), kind: "malzeme", label: "Malzeme", birim: "goturu", basis: "sabit", carpan: 1, fire: false, manuelBirimMaliyet: 0 }])}>
+            <Plus size={16} /> Elle fiyatlı satır
           </button>
           <button className="btn btn-ghost btn-sm" onClick={() => props.onChange([...lines, { id: uid(), kind: "iscilik", label: "İşçilik", birim: "gun", basis: "sabit", carpan: 1, fire: false, gun: 1, kisi: 1 }])}>
             <Plus size={16} /> İşçilik satırı
           </button>
         </div>
+      )}
+      {adding && (
+        <ProductPicker
+          products={props.products}
+          onClose={() => setAdding(false)}
+          onPick={(p) => {
+            props.onChange([...lines, { id: uid(), kind: "malzeme", label: p.ad, productId: p.id, birim: p.birim, basis: "sabit", carpan: 1, fire: false }]);
+            setAdding(false);
+          }}
+        />
       )}
       {picking && (
         <ProductPicker

@@ -22,6 +22,13 @@ import {
   type WorkTemplate,
 } from "@/lib/types";
 
+/** Kalemleri gruba göre toplar; grup sırası ilk görünüş sırasıdır, grup içi sıra korunur. */
+function gruplaSirala(items: QuoteItem[]): QuoteItem[] {
+  const sira = new Map<string, number>();
+  items.forEach((k) => { if (!sira.has(k.grup)) sira.set(k.grup, sira.size); });
+  return items.map((k, i) => ({ k, i })).sort((a, b) => (sira.get(a.k.grup)! - sira.get(b.k.grup)!) || a.i - b.i).map((x) => x.k);
+}
+
 const TURLER = (Object.keys(MEKAN_ETIKET) as MekanTuru[]).map((v) => ({ value: v, label: MEKAN_ETIKET[v] }));
 
 export function QuoteBuilder(props: {
@@ -120,13 +127,23 @@ export function QuoteBuilder(props: {
 
             {/* Kalemler */}
             <div className="divide-y divide-navy-50">
-              {m.kalemler.map((it) => {
+              {gruplaSirala(m.kalemler).map((it, ki, sirali) => {
                 const ir = mr.kalemler.find((x) => x.id === it.id)!;
+                const grupBasi = ki === 0 || sirali[ki - 1].grup !== it.grup;
+                const grupKalemleri = sirali.filter((x) => x.grup === it.grup).map((x) => mr.kalemler.find((y) => y.id === x.id)!);
+                const grupSatis = grupKalemleri.filter((g) => g.aktif).reduce((a, g) => a + g.satis, 0);
+                const grupAcik = grupKalemleri.filter((g) => g.aktif).length;
                 const isOpen = !!open[it.id];
                 const results: Record<string, LineResult> = Object.fromEntries(ir.satirlar.map((s) => [s.id, s]));
                 const metin = renderItemText(it, m, cat);
                 return (
                   <div key={it.id} className={cx(!it.aktif && "bg-navy-50/50")}>
+                    {grupBasi && (
+                      <div className="flex items-center justify-between border-y border-navy-100 bg-navy-50 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-navy-500">
+                        <span>{it.grup} <span className="font-medium normal-case tracking-normal text-navy-400">· {grupAcik}/{grupKalemleri.length} açık</span></span>
+                        <span className={grupAcik ? "text-navy-700" : "text-navy-300"}>{formatTL(grupSatis)}</span>
+                      </div>
+                    )}
                     <div className="flex items-center gap-3 px-4 py-2">
                       <Toggle disabled={readOnly} checked={it.aktif} onChange={(v) => editItem(m.id, it.id, (x) => (x.aktif = v))} />
                       <button className="min-w-0 flex-1 py-1 text-left" onClick={() => setOpen({ ...open, [it.id]: !isOpen })}>

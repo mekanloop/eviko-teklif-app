@@ -1,7 +1,8 @@
 "use client";
 
 import { Download, Percent, Plus, Search, Upload } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { TemplateManager } from "@/components/TemplateManager";
 import { Badge, DatalistOptions, Empty, Field, Loading, Modal, MoneyField, NumField, PageHeader, Select, Tabs, TextArea, TextInput, Toggle } from "@/components/ui";
 import { getDb } from "@/lib/db/schema";
 import { nowIso, uid } from "@/lib/db/ids";
@@ -46,7 +47,11 @@ function parseCsv(text: string): string[][] {
 export default function PricesPage() {
   const products = useProducts();
   const labor = useLabor();
-  const [tab, setTab] = useState<"urun" | "usta">("urun");
+  const [tab, setTab] = useState<"urun" | "usta" | "kalem">("urun");
+  useEffect(() => {
+    if (location.hash === "#kalemler") setTab("kalem");
+    else if (location.hash === "#ustalar") setTab("usta");
+  }, []);
   const [q, setQ] = useState("");
   const [ted, setTed] = useState("");
   const [kat, setKat] = useState("");
@@ -141,7 +146,7 @@ export default function PricesPage() {
     <>
       <PageHeader
         title="Fiyat Listesi"
-        sub={`${products.length} ürün · net alış fiyatları KDV hariçtir`}
+        sub={tab === "kalem" ? "Elektrik, su tesisatı, seramik… her işin yevmiye + malzeme maliyeti" : `${products.length} ürün · net alış fiyatları KDV hariçtir`}
         actions={
           tab === "urun" ? (
             <>
@@ -153,7 +158,7 @@ export default function PricesPage() {
           ) : undefined
         }
       />
-      <Tabs value={tab} onChange={setTab} tabs={[{ value: "urun", label: "Ürünler", count: products.length }, { value: "usta", label: "Ustalar / yevmiye", count: eksikUsta }]} />
+      <Tabs value={tab} onChange={setTab} tabs={[{ value: "urun", label: "Ürünler", count: products.length }, { value: "usta", label: "Ustalar / yevmiye", count: eksikUsta }, { value: "kalem", label: "İş kalemleri" }]} />
 
       {tab === "urun" && (
         <>
@@ -192,6 +197,8 @@ export default function PricesPage() {
           )}
         </>
       )}
+
+      {tab === "kalem" && <TemplateManager />}
 
       {tab === "usta" && (
         <div className="card divide-y divide-navy-50">
