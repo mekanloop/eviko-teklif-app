@@ -1,0 +1,85 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html, body {
+  background: #f1f4f9;
+  color: #1b2a4a;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  overscroll-behavior-y: none;
+}
+
+/* iOS yakınlaştırmayı önlemek için form alanları en az 16px */
+input, select, textarea { font-size: 16px; }
+
+@layer components {
+  .btn {
+    @apply inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl px-4 text-[15px] font-semibold transition active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none select-none;
+  }
+  .btn-primary { @apply bg-navy-800 text-white hover:bg-navy-700; }
+  .btn-accent { @apply bg-bronze-500 text-white hover:bg-bronze-600; }
+  .btn-ghost { @apply border border-navy-200 bg-white text-navy-800 hover:bg-navy-50; }
+  .btn-danger { @apply border border-red-200 bg-white text-red-700 hover:bg-red-50; }
+  .btn-sm { @apply min-h-[36px] rounded-lg px-3 text-sm; }
+  .card { @apply rounded-2xl border border-navy-100 bg-white shadow-sm; }
+  .input {
+    @apply min-h-[44px] w-full rounded-xl border border-navy-200 bg-white px-3 text-navy-900 placeholder:text-navy-300 focus:border-navy-500 focus:outline-none focus:ring-2 focus:ring-navy-200;
+  }
+  .label { @apply mb-1 block text-xs font-semibold uppercase tracking-wide text-navy-500; }
+  .th { @apply px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-navy-500; }
+  .td { @apply px-3 py-2 text-sm; }
+}
+
+.safe-b { padding-bottom: env(safe-area-inset-bottom); }
+.safe-t { padding-top: env(safe-area-inset-top); }
+
+@media print {
+  html, body { background: #fff !important; }
+  .no-print { display: none !important; }
+  .print-page { box-shadow: none !important; margin: 0 !important; border: 0 !important; }
+  @page { size: A4; margin: 0; }
+}
+
+/* ---- Yazdırılabilir A4 belgeler ---- */
+.sheet {
+  width: 210mm;
+  min-height: 297mm;
+  margin: 16px auto;
+  padding: 14mm 16mm 24mm;
+  background: #fff;
+  color: #1b2a4a;
+  font-size: 10.5pt;
+  line-height: 1.45;
+  box-shadow: 0 6px 30px rgba(19, 31, 56, 0.15);
+  position: relative;
+  box-sizing: border-box;
+}
+.sheet + .sheet { break-before: page; }
+.sheet .band { background: #1b2a4a; color: #fff; padding: 7px 12px; font-weight: 700; letter-spacing: 0.04em; font-size: 10.5pt; display: flex; justify-content: space-between; gap: 12px; }
+.sheet .rule { height: 2px; background: #b08d57; margin: 8px 0 14px; }
+.sheet ul.bullets { margin: 6px 0 12px; padding-left: 4px; list-style: none; }
+.sheet ul.bullets li { position: relative; padding-left: 14px; margin: 3px 0; }
+.sheet ul.bullets li::before { content: "•"; position: absolute; left: 2px; color: #b08d57; font-weight: 700; }
+.sheet table.tbl { width: 100%; border-collapse: collapse; }
+.sheet table.tbl th { background: #1b2a4a; color: #fff; text-align: left; padding: 6px 8px; font-size: 9.5pt; border: 1px solid #1b2a4a; }
+.sheet table.tbl td { border: 1px solid #c9d2e3; padding: 7px 8px; height: 26px; }
+.sheet .sheet-foot { position: absolute; left: 16mm; right: 16mm; bottom: 8mm; display: flex; justify-content: space-between; border-top: 1px solid #dde4f0; padding-top: 4px; font-size: 8.5pt; color: #6580ad; }
+.sheet .keep { break-inside: avoid; }
+
+@media print {
+  .sheet { margin: 0; box-shadow: none; width: auto; min-height: 297mm; padding: 14mm 16mm 24mm; }
+  body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+@media screen and (max-width: 820px) {
+  .sheet { width: auto; min-height: 0; margin: 8px; padding: 18px; }
+  .sheet .sheet-foot { position: static; margin-top: 24px; }
+}
