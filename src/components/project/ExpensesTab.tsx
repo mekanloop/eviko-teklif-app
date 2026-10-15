@@ -2,26 +2,29 @@
 
 import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { Empty, Field, Modal, MoneyField, Select, Stat, TextInput } from "@/components/ui";
+import { Empty, Field, Modal, MoneyField, NumField, Select, Stat, TextInput } from "@/components/ui";
 import { getDb } from "@/lib/db/schema";
 import { todayIso, uid } from "@/lib/db/ids";
-import { useExpenses } from "@/lib/data/hooks";
+import { useExpenses, useGiderler } from "@/lib/data/hooks";
 import { formatSayi, formatTL } from "@/lib/engine/money";
 import { formatTarih } from "@/lib/engine/text";
-import type { Expense } from "@/lib/types";
+import { GIDER_KATEGORI_ETIKET, type Expense, type GiderKategori } from "@/lib/types";
 import type { ProjectCtx } from "./ProjectContext";
 
-const KAT = [
-  { value: "malzeme", label: "Malzeme" },
-  { value: "iscilik", label: "İşçilik / usta" },
-  { value: "nakliye", label: "Nakliye / moloz" },
-  { value: "diger", label: "Diğer" },
+const KAT = (Object.keys(GIDER_KATEGORI_ETIKET) as GiderKategori[]).map((value) => ({ value, label: GIDER_KATEGORI_ETIKET[value] }));
+const SEKIL = [
+  { value: "nakit", label: "Nakit" },
+  { value: "havale", label: "Havale / EFT" },
+  { value: "kart", label: "Kart" },
+  { value: "cek", label: "Çek / senet" },
 ] as const;
 
 export function ExpensesTab({ ctx }: { ctx: ProjectCtx }) {
   const items = useExpenses(ctx.project.id);
+  const giderler = useGiderler();
   const [edit, setEdit] = useState<Expense | null>(null);
-  if (!items) return null;
+  const [gunluk, setGunluk] = useState<{ giderId: string; gun: number; kisi: number } | null>(null);
+  if (!items || !giderler) return null;
   const f = ctx.finance;
   const yeni = (): Expense => ({ id: uid(), projectId: ctx.project.id, tarih: todayIso(), kategori: "malzeme", aciklama: "", tedarikci: "", tutar: 0 });
   const fark = f.gercekMaliyet - f.tahminiMaliyet;
@@ -41,7 +44,10 @@ export function ExpensesTab({ ctx }: { ctx: ProjectCtx }) {
       )}
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-bold text-navy-800">Harcamalar</h3>
-        <button className="btn btn-primary btn-sm" onClick={() => setEdit(yeni())}><Plus size={16} /> Harcama ekle</button>
+        <div className="flex gap-2">
+          {giderler.some((g) => g.aktif) && <button className="btn btn-accent btn-sm" onClick={() => { const g = giderler.find((x) => x.aktif)!; setGunluk({ giderId: g.id, gun: ctx.quote?.teslimIsGunu ?? 1, kisi: 2 }); }}><Plus size={16} /> Günlük gider (yemek/benzin)</button>}
+          <button className="btn btn-primary btn-sm" onClick={() => setEdit(yeni())}><Plus size={16} /> Harcama ekle</button>
+        </div>
       </div>
       {items.length === 0 ? <Empty title="Harcama girilmedi" sub="Aldığınız malzeme, ödediğiniz usta ve nakliye bedellerini girerek gerçek kârı görün." /> : (
         <div className="card divide-y divide-navy-50">
@@ -53,6 +59,22 @@ export function ExpensesTab({ ctx }: { ctx: ProjectCtx }) {
           ))}
         </div>
       )}
+      {gunluk && (() => {
+        const g = giderler.find((x) => x.id === gunluk.giderId)!;
+        const adet = g.birim === "kisiGun" ? gunluk.gun * gunluk.kisi : g.birim === "gun" ? gunluk.gun : 1;
+        const tutar = Math.round(adet * g.tutar);
+        return (
+          <Modal title="Günlük gider ekle" onClose={() => setGunluk(null)} footer={<><button className="btn btn-ghost" onClick={() => setGunluk(null)}>Vazgeç</button><button className="btn btn-primary" disabled={tutar <= 0} onClick={async () => { await getDb().expenses.put({ id: uid(), projectId: ctx.project.id, tarih: todayIso(), kategori: g.id.includes("benzin") || /benzin|yakıt|yakit/i.test(g.ad) ? "yakit" : /yemek/i.test(g.ad) ? "yemek" : "diger", aciklama: `${g.ad}: ${g.birim === "kisiGun" ? `${gunluk.kisi} kişi × ${gunluk.gun} gün` : g.birim === "gun" ? `${gunluk.gun} gün` : "sabit"}`, tedarikci: "", tutar }); setGunluk(null); }}>Gider olarak kaydet</button></>}>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Gider" className="sm:col-span-2"><Select value={gunluk.giderId} onChange={(v) => setGunluk({ ...gunluk, giderId: v })} options={giderler.filter((x) => x.aktif).map((x) => ({ value: x.id, label: `${x.ad} (${formatTL(x.tutar)})` }))} /></Field>
+              {g.birim !== "sabit" && <Field label="Gün sayısı"><NumField value={gunluk.gun} onChange={(v) => setGunluk({ ...gunluk, gun: v ?? 0 })} /></Field>}
+              {g.birim === "kisiGun" && <Field label="Kişi sayısı"><NumField value={gunluk.kisi} onChange={(v) => setGunluk({ ...gunluk, kisi: v ?? 0 })} /></Field>}
+            </div>
+            <div className="mt-3 rounded-xl bg-navy-50 p-3 text-sm">Tutar: <b>{formatTL(tutar)}</b></div>
+          </Modal>
+        );
+      })()}
+
       {edit && (
         <Modal title="Harcama" onClose={() => setEdit(null)} footer={<>
           {items.some((x) => x.id === edit.id) && <button className="btn btn-danger mr-auto" onClick={async () => { if (confirm("Harcama silinsin mi?")) { await getDb().expenses.delete(edit.id); setEdit(null); } }}><Trash2 size={16} /></button>}
@@ -62,7 +84,8 @@ export function ExpensesTab({ ctx }: { ctx: ProjectCtx }) {
             <Field label="Tarih"><TextInput type="date" value={edit.tarih} onChange={(v) => setEdit({ ...edit, tarih: v })} /></Field>
             <Field label="Tutar (₺)"><MoneyField value={edit.tutar} onChange={(k) => setEdit({ ...edit, tutar: k })} /></Field>
             <Field label="Kategori"><Select value={edit.kategori} onChange={(v) => setEdit({ ...edit, kategori: v })} options={KAT.map((k) => ({ ...k }))} /></Field>
-            <Field label="Tedarikçi / usta"><TextInput value={edit.tedarikci} onChange={(v) => setEdit({ ...edit, tedarikci: v })} /></Field>
+            <Field label="Ödeme yapılan yer / kişi"><TextInput value={edit.tedarikci} onChange={(v) => setEdit({ ...edit, tedarikci: v })} placeholder="Tedarikçi, usta…" /></Field>
+            <Field label="Ödeme şekli"><Select value={edit.sekil ?? "nakit"} onChange={(v) => setEdit({ ...edit, sekil: v })} options={SEKIL.map((s) => ({ ...s }))} /></Field>
             <Field label="Açıklama" className="sm:col-span-2"><TextInput value={edit.aciklama} onChange={(v) => setEdit({ ...edit, aciklama: v })} placeholder="Örn. Vitra seramik 23 kutu" /></Field>
           </div>
         </Modal>

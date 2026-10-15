@@ -3,6 +3,7 @@
 import { Download, Percent, Plus, Search, Upload } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CabinetManager } from "@/components/CabinetManager";
+import { GiderManager } from "@/components/GiderManager";
 import { TemplateManager } from "@/components/TemplateManager";
 import { Badge, DatalistOptions, Empty, Field, Loading, Modal, MoneyField, NumField, PageHeader, Select, Tabs, TextArea, TextInput, Toggle } from "@/components/ui";
 import { getDb } from "@/lib/db/schema";
@@ -48,11 +49,12 @@ function parseCsv(text: string): string[][] {
 export default function PricesPage() {
   const products = useProducts();
   const labor = useLabor();
-  const [tab, setTab] = useState<"urun" | "dolap" | "usta" | "kalem">("urun");
+  const [tab, setTab] = useState<"urun" | "dolap" | "usta" | "gider" | "kalem">("urun");
   useEffect(() => {
     if (location.hash === "#kalemler") setTab("kalem");
     else if (location.hash === "#ustalar") setTab("usta");
     else if (location.hash === "#dolaplar") setTab("dolap");
+    else if (location.hash === "#giderler") setTab("gider");
   }, []);
   const [q, setQ] = useState("");
   const [ted, setTed] = useState("");
@@ -160,7 +162,7 @@ export default function PricesPage() {
           ) : undefined
         }
       />
-      <Tabs value={tab} onChange={setTab} tabs={[{ value: "urun", label: "Ürünler", count: products.length }, { value: "dolap", label: "Dolap kataloğu" }, { value: "usta", label: "Ustalar / yevmiye", count: eksikUsta }, { value: "kalem", label: "İş kalemleri" }]} />
+      <Tabs value={tab} onChange={setTab} tabs={[{ value: "urun", label: "Ürünler", count: products.length }, { value: "dolap", label: "Dolap kataloğu" }, { value: "usta", label: "Ustalar / yevmiye", count: eksikUsta }, { value: "gider", label: "Giderler" }, { value: "kalem", label: "İş kalemleri" }]} />
 
       {tab === "urun" && (
         <>
@@ -202,6 +204,7 @@ export default function PricesPage() {
 
       {tab === "kalem" && <TemplateManager />}
       {tab === "dolap" && <CabinetManager />}
+      {tab === "gider" && <GiderManager />}
 
       {tab === "usta" && (
         <div className="card divide-y divide-navy-50">

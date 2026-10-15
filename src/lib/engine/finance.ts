@@ -35,7 +35,7 @@ export function projectFinance(
   const alinan = odemeler.reduce((a, p) => a + p.tutar, 0);
   const netSatis = (secili?.net ?? 0) + ekToplam;
   const tahminiMaliyet = (secili?.maliyet ?? 0) + ekMaliyet;
-  const harcamaKategori: ProjectFinance["harcamaKategori"] = { malzeme: 0, iscilik: 0, nakliye: 0, diger: 0 };
+  const harcamaKategori: ProjectFinance["harcamaKategori"] = { malzeme: 0, iscilik: 0, nakliye: 0, yemek: 0, yakit: 0, diger: 0 };
   for (const h of harcamalar) harcamaKategori[h.kategori] += h.tutar;
   const gercekMaliyet = harcamalar.reduce((a, h) => a + h.tutar, 0);
   const gercekKar = netSatis - gercekMaliyet;

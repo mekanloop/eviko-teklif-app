@@ -16,6 +16,15 @@ export function useProducts() {
 export function useCabinets() {
   return useLiveQuery(async () => (await getDb().cabinets.toArray()).sort((a, b) => a.ad.localeCompare(b.ad, "tr")), []);
 }
+export function useGiderler() {
+  return useLiveQuery(() => getDb().giderler.toArray(), []);
+}
+export function useAllExpensesList() {
+  return useLiveQuery(async () => (await getDb().expenses.toArray()).sort((a, b) => b.tarih.localeCompare(a.tarih)), []);
+}
+export function useAllPaymentsList() {
+  return useLiveQuery(async () => (await getDb().payments.toArray()).sort((a, b) => b.tarih.localeCompare(a.tarih)), []);
+}
 export function useLabor() {
   return useLiveQuery(() => getDb().labor.toArray(), []);
 }
@@ -79,7 +88,8 @@ export function useCatalog(): Catalog | undefined {
   const products = useProducts();
   const labor = useLabor();
   const cabinets = useCabinets();
-  return useMemo(() => (products && labor && cabinets ? buildCatalog(products, labor, cabinets) : undefined), [products, labor, cabinets]);
+  const giderler = useGiderler();
+  return useMemo(() => (products && labor && cabinets && giderler ? buildCatalog(products, labor, cabinets, giderler) : undefined), [products, labor, cabinets, giderler]);
 }
 
 export type { Quote };

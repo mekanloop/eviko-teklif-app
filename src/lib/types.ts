@@ -65,6 +65,23 @@ export interface LaborType {
   aktif: boolean;
 }
 
+/** Günlük/sabit gider tanımı (yemek, benzin…). Teklif maliyetine ve kâr hesabına girer. */
+export type GiderBirimi = "kisiGun" | "gun" | "sabit";
+export const GIDER_BIRIM_ETIKET: Record<GiderBirimi, string> = {
+  kisiGun: "kişi başı / gün",
+  gun: "iş günü başına",
+  sabit: "iş başına sabit",
+};
+export interface GiderTanimi {
+  id: Id;
+  ad: string;
+  birim: GiderBirimi;
+  tutar: Kurus;
+  /** Teklif fiyatına da yansıtılsın (işçilik kâr oranıyla). Kapalıysa sadece maliyete girer. */
+  yansit: boolean;
+  aktif: boolean;
+}
+
 /* --------------------------- İş kalemi şablonları -------------------------- */
 
 export type Basis = "sabit" | "zemin" | "duvar" | "toplam" | "tavan" | "cevre";
@@ -256,6 +273,7 @@ export interface Frozen {
   urunler: Record<Id, { netAlis: Kurus; kutuM2?: number; ad: string; tedarikci?: string }>;
   ustalar: Record<Id, { yevmiye: Kurus; ad: string }>;
   dolaplar?: Record<Id, { fiyatM2: Kurus; ad: string }>;
+  giderler?: Record<Id, { ad: string; birim: GiderBirimi; tutar: Kurus; yansit: boolean }>;
 }
 
 export interface PlanKalemi {
@@ -290,6 +308,8 @@ export interface Quote {
   mekanToplamGoster: boolean;
   /** Teklif çıktısına mekan krokileri eklensin */
   krokiGoster?: boolean;
+  /** Bu teklifte kapatılan gider tanımları */
+  giderKapali?: Id[];
   ayarlar: QuoteSettings;
   secenekler: QuoteOption[];
   secilenSecenekId?: Id;
@@ -401,14 +421,27 @@ export interface Handover {
   imza?: string;
 }
 
+export type GiderKategori = "malzeme" | "iscilik" | "nakliye" | "yemek" | "yakit" | "diger";
+export const GIDER_KATEGORI_ETIKET: Record<GiderKategori, string> = {
+  malzeme: "Malzeme",
+  iscilik: "İşçilik / usta",
+  nakliye: "Nakliye / moloz",
+  yemek: "Yemek",
+  yakit: "Benzin / yakıt",
+  diger: "Diğer",
+};
+
+/** Yapılan ödeme (gider). projectId yoksa genel (işe bağlı olmayan) gider. */
 export interface Expense {
   id: Id;
-  projectId: Id;
+  projectId?: Id;
   tarih: string;
-  kategori: "malzeme" | "iscilik" | "nakliye" | "diger";
+  kategori: GiderKategori;
   aciklama: string;
+  /** Ödemenin yapıldığı yer / kişi (tedarikçi, usta…) */
   tedarikci: string;
   tutar: Kurus;
+  sekil?: "nakit" | "havale" | "kart" | "cek";
 }
 
 export interface CalEvent {
@@ -458,4 +491,6 @@ export interface Settings {
   varsayilanSartlar: string[];
   varsayilanPlan: PlanKalemi[];
   demoYuklu: boolean;
+  /** Uygulanmış veri güncellemeleri */
+  migrations?: string[];
 }

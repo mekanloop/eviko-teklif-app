@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, FileText, FolderKanban, LayoutDashboard, Settings, Tags, Users } from "lucide-react";
+import { CalendarDays, FileText, FolderKanban, LayoutDashboard, Settings, Tags, Users, Wallet } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
@@ -12,6 +12,7 @@ const NAV = [
   { href: "/musteriler", label: "Müşteriler", icon: Users },
   { href: "/teklifler", label: "Teklifler", icon: FileText },
   { href: "/fiyatlar", label: "Fiyat Listesi", icon: Tags },
+  { href: "/muhasebe", label: "Muhasebe", icon: Wallet },
   { href: "/takvim", label: "Takvim", icon: CalendarDays },
   { href: "/ayarlar", label: "Ayarlar", icon: Settings },
 ];

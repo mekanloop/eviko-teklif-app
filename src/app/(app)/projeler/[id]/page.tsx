@@ -62,7 +62,7 @@ export default function ProjectPage() {
         back={<Link href={customer ? `/musteriler/${customer.id}` : "/projeler"} className="mb-1 inline-flex items-center gap-1 text-sm text-navy-500"><ArrowLeft size={14} /> {customer?.ad ?? "Projeler"}</Link>}
         title={project.ad}
         sub={<span className="inline-flex flex-wrap items-center gap-2"><ProjectBadge durum={project.durum} />{project.adres && <span>{project.adres}</span>}</span>}
-        actions={<button className="btn btn-danger btn-sm" onClick={async () => { if (confirm("Proje ve tüm teklif/ödeme/belge kayıtları silinsin mi? Bu işlem geri alınamaz.")) { await deleteProject(project.id); router.push("/projeler"); } }}><Trash2 size={16} /></button>}
+        actions={<><Link href={`/projeler/${project.id}/dosya`} className="btn btn-ghost btn-sm">İş dosyası (kazanç)</Link><button className="btn btn-danger btn-sm" onClick={async () => { if (confirm("Proje ve tüm teklif/ödeme/belge kayıtları silinsin mi? Bu işlem geri alınamaz.")) { await deleteProject(project.id); router.push("/projeler"); } }}><Trash2 size={16} /></button></>}
       />
 
       {/* Aşama çubuğu */}

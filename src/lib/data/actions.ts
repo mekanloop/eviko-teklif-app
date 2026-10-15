@@ -1,5 +1,5 @@
 import { getDb } from "../db/schema";
-import { defaultLabor, defaultSettings, defaultTemplates } from "../db/seed";
+import { defaultGiderler, defaultLabor, defaultSettings, defaultTemplates, MIGRATIONS } from "../db/seed";
 import { nowIso, todayIso, uid } from "../db/ids";
 import { buildCatalog, freezeCatalog } from "../engine/calc";
 import type {
@@ -22,6 +22,26 @@ export async function ensureSeed(): Promise<void> {
       if ((await db.templates.count()) === 0) await db.templates.bulkPut(defaultTemplates());
     });
   }
+  // Giderler (yemek, benzin): kayıt yoksa varsayılanlar gelir
+  if ((await db.giderler.count()) === 0) await db.giderler.bulkPut(defaultGiderler());
+  await runMigrations();
+}
+
+/**
+ * Kullanıcı verisine bir kez uygulanan güncellemeler. Anahtarı settings.migrations içinde saklanır;
+ * aynı güncelleme ikinci kez çalışmaz, sonradan elle yapılan değişiklikler ezilmez.
+ */
+async function runMigrations(): Promise<void> {
+  const db = getDb();
+  const s = (await db.settings.get("main")) ?? defaultSettings();
+  const done = new Set(s.migrations ?? []);
+  const yapilan: string[] = [];
+  for (const m of MIGRATIONS) {
+    if (done.has(m.id)) continue;
+    await m.run(db);
+    yapilan.push(m.id);
+  }
+  if (yapilan.length) await db.settings.put({ ...s, migrations: [...done, ...yapilan] });
 }
 
 /* ------------------------------- Müşteri/proje ------------------------------ */
@@ -148,7 +168,7 @@ export async function sendQuote(id: string): Promise<void> {
   const db = getDb();
   const q = await db.quotes.get(id);
   if (!q || q.durum !== "taslak") return;
-  const live = buildCatalog(await db.products.toArray(), await db.labor.toArray(), await db.cabinets.toArray());
+  const live = buildCatalog(await db.products.toArray(), await db.labor.toArray(), await db.cabinets.toArray(), await db.giderler.toArray());
   const now = nowIso();
   q.dondurulmus = freezeCatalog(q, live, now);
   q.durum = "gonderildi";

@@ -192,3 +192,49 @@ describe("müşteri metni", () => {
     expect(renderItemText(it, mekan(), cat)).toBe("Seramik yenilenir.");
   });
 });
+
+describe("günlük giderler (yemek, benzin)", () => {
+  const catG: Catalog = {
+    urunler: {},
+    ustalar: { usta: { ad: "Usta", yevmiye: 500000 } },
+    giderler: {
+      yemek: { ad: "Yemek", birim: "kisiGun", tutar: 30000, yansit: true },
+      benzin: { ad: "Benzin", birim: "gun", tutar: 50000, yansit: false },
+    },
+  };
+  const q = { kdvModu: "nakitKdvHaric" as const, kdvOrani: 20, ayarlar: { karMalzemeYuzde: 25, karIscilikYuzde: 10, fireYuzde: 10, yuvarlamaTL: 0 }, dondurulmus: undefined, teslimIsGunu: 10 };
+  const isc: LineDef = { id: "i", kind: "iscilik", label: "Usta", laborTypeId: "usta", gun: 4, kisi: 2, birim: "gun", basis: "sabit", carpan: 1, fire: false };
+  const opt: QuoteOption = {
+    id: "o", ad: "S", indirim: 0,
+    mekanlar: [{ id: "m", ad: "B", tur: "banyo", en: 2, boy: 2, yukseklik: 2.5, dusumM2: 0, kalemler: [{ id: "k", ad: "K", grup: "g", metin: "", aktif: true, satirlar: [isc] }] }],
+  };
+  it("yemek = adam-gün x tutar, benzin = iş günü x tutar", () => {
+    const r = calcOption(q, opt, catG);
+    expect(r.adamGun).toBe(8);
+    const yemek = r.giderler.find((g) => g.id === "yemek")!;
+    const benzin = r.giderler.find((g) => g.id === "benzin")!;
+    expect(yemek.maliyet).toBe(8 * 30000);
+    expect(benzin.maliyet).toBe(10 * 50000);
+    // işçilik 8 adam-gün x 5.000 = 40.000 TL
+    expect(r.iscilikMaliyet).toBe(4000000);
+    expect(r.giderMaliyet).toBe(240000 + 500000);
+    expect(r.maliyet).toBe(4000000 + 740000);
+  });
+  it("sadece 'yansıt' açık olan gider satışa girer (işçilik kârıyla)", () => {
+    const r = calcOption(q, opt, catG);
+    expect(r.giderSatis).toBe(Math.round(240000 * 1.1)); // benzin yansımaz
+    expect(r.satisOnce).toBe(Math.round(4000000 * 1.1) + Math.round(240000 * 1.1));
+  });
+  it("teklifte kapatılan gider hesaba girmez", () => {
+    const r = calcOption({ ...q, giderKapali: ["benzin"] }, opt, catG);
+    expect(r.giderler.map((g) => g.id)).toEqual(["yemek"]);
+    expect(r.giderMaliyet).toBe(240000);
+  });
+  it("iş günü yoksa günlük gider eksik işaretlenir", () => {
+    const r = calcOption({ ...q, teslimIsGunu: undefined }, opt, catG);
+    const benzin = r.giderler.find((g) => g.id === "benzin")!;
+    expect(benzin.eksik).toBe(true);
+    expect(benzin.maliyet).toBe(0);
+    expect(r.eksikFiyat).toBe(1);
+  });
+});

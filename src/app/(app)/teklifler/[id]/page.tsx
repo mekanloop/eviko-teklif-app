@@ -126,7 +126,7 @@ export default function QuotePage() {
 
       {tab === "kapsam" && (
         <div className="space-y-4">
-          <QuoteSettingsPanel quote={quote} />
+          <QuoteSettingsPanel quote={quote} giderler={Object.entries(catalog.giderler ?? {}).map(([id, g]) => ({ id, ad: g.ad }))} />
 
           {/* Seçenekler */}
           <div className="flex flex-wrap items-center gap-2">

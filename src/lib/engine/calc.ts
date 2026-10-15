@@ -1,6 +1,8 @@
 import type {
   Cabinet,
   Frozen,
+  GiderBirimi,
+  GiderTanimi,
   Id,
   Kurus,
   LineDef,
@@ -20,22 +22,25 @@ export interface Catalog {
   urunler: Record<Id, Pick<Product, "netAlis" | "kutuM2" | "ad"> & { tedarikci?: string }>;
   ustalar: Record<Id, Pick<LaborType, "yevmiye" | "ad">>;
   dolaplar?: Record<Id, { fiyatM2: Kurus; ad: string }>;
+  giderler?: Record<Id, { ad: string; birim: GiderBirimi; tutar: Kurus; yansit: boolean }>;
 }
 
-export function buildCatalog(products: Product[], labor: LaborType[], cabinets: Cabinet[] = []): Catalog {
+export function buildCatalog(products: Product[], labor: LaborType[], cabinets: Cabinet[] = [], giderler: GiderTanimi[] = []): Catalog {
   const urunler: Catalog["urunler"] = {};
   for (const p of products) urunler[p.id] = { netAlis: p.netAlis, kutuM2: p.kutuM2, ad: p.ad, tedarikci: p.tedarikci };
   const ustalar: Catalog["ustalar"] = {};
   for (const l of labor) ustalar[l.id] = { yevmiye: l.yevmiye, ad: l.ad };
   const dolaplar: NonNullable<Catalog["dolaplar"]> = {};
   for (const c of cabinets) dolaplar[c.id] = { fiyatM2: c.fiyatM2, ad: c.ad };
-  return { urunler, ustalar, dolaplar };
+  const gdr: NonNullable<Catalog["giderler"]> = {};
+  for (const g of giderler) if (g.aktif) gdr[g.id] = { ad: g.ad, birim: g.birim, tutar: g.tutar, yansit: g.yansit };
+  return { urunler, ustalar, dolaplar, giderler: gdr };
 }
 
 /** Teklif dondurulmuşsa o anki fiyatları, değilse güncel kataloğu kullanır. */
 export function catalogFor(frozen: Frozen | undefined, live: Catalog): Catalog {
   if (!frozen) return live;
-  return { urunler: frozen.urunler, ustalar: frozen.ustalar, dolaplar: frozen.dolaplar ?? live.dolaplar };
+  return { urunler: frozen.urunler, ustalar: frozen.ustalar, dolaplar: frozen.dolaplar ?? live.dolaplar, giderler: frozen.giderler ?? live.giderler };
 }
 
 export function freezeCatalog(quote: Quote, live: Catalog, now: string): Frozen {
@@ -53,7 +58,7 @@ export function freezeCatalog(quote: Quote, live: Catalog, now: string): Frozen 
           if (l.laborTypeId && live.ustalar[l.laborTypeId]) ustalar[l.laborTypeId] = live.ustalar[l.laborTypeId];
         }
     }
-  return { tarih: now, urunler, ustalar, dolaplar };
+  return { tarih: now, urunler, ustalar, dolaplar, giderler: live.giderler };
 }
 
 /* -------------------------------- Ölçüler --------------------------------- */
@@ -158,10 +163,29 @@ export interface MekanResult {
   musteriTutar: Kurus;
 }
 
+export interface GiderResult {
+  id: Id;
+  ad: string;
+  birim: GiderBirimi;
+  /** Çarpan: toplam adam-gün, iş günü ya da 1 */
+  miktar: number;
+  birimTutar: Kurus;
+  maliyet: Kurus;
+  satis: Kurus;
+  yansit: boolean;
+  /** İş günü bilgisi eksik */
+  eksik: boolean;
+}
+
 export interface OptionResult {
   id: Id;
   ad: string;
   mekanlar: MekanResult[];
+  giderler: GiderResult[];
+  giderMaliyet: Kurus;
+  giderSatis: Kurus;
+  /** Aktif işçilik satırlarındaki toplam adam-gün */
+  adamGun: number;
   maliyet: Kurus;
   malzemeMaliyet: Kurus;
   iscilikMaliyet: Kurus;
@@ -303,7 +327,7 @@ export function allocate(total: Kurus, weights: number[], adim = 1): Kurus[] {
 }
 
 export function calcOption(
-  quote: Pick<Quote, "kdvModu" | "kdvOrani" | "ayarlar" | "dondurulmus">,
+  quote: Pick<Quote, "kdvModu" | "kdvOrani" | "ayarlar" | "dondurulmus"> & Partial<Pick<Quote, "teslimIsGunu" | "giderKapali">>,
   option: QuoteOption,
   live: Catalog,
 ): OptionResult {
@@ -347,6 +371,43 @@ export function calcOption(
     return { id: m.id, ad: m.ad, olculer: o, kalemler, dolaplar, maliyet: mMaliyet, satis: mSatis, musteriTutar: mSatis };
   });
 
+  // Günlük/sabit giderler (yemek, benzin…)
+  let adamGun = 0;
+  for (const m of option.mekanlar)
+    for (const it of m.kalemler) {
+      if (!it.aktif) continue;
+      for (const l of it.satirlar) if (l.kind === "iscilik") adamGun += n0(l.gun) * (l.kisi && l.kisi > 0 ? l.kisi : 1);
+    }
+  adamGun = round2(adamGun);
+  const isGunu = n0(quote.teslimIsGunu);
+  const kapali = new Set(quote.giderKapali ?? []);
+  const giderler: GiderResult[] = Object.entries(cat.giderler ?? {})
+    .filter(([id]) => !kapali.has(id))
+    .map(([id, g]) => {
+      const miktar = g.birim === "kisiGun" ? adamGun : g.birim === "gun" ? isGunu : 1;
+      const maliyet = Math.round(miktar * g.tutar);
+      return {
+        id,
+        ad: g.ad,
+        birim: g.birim,
+        miktar,
+        birimTutar: g.tutar,
+        maliyet,
+        satis: g.yansit ? withMarkup(maliyet, ayar.karIscilikYuzde) : 0,
+        yansit: g.yansit,
+        eksik: g.birim === "gun" && isGunu <= 0,
+      };
+    });
+  let giderMaliyet = 0;
+  let giderSatis = 0;
+  for (const g of giderler) {
+    giderMaliyet += g.maliyet;
+    giderSatis += g.satis;
+    if (g.eksik) eksik++;
+  }
+  maliyet += giderMaliyet;
+  satisOnce += giderSatis;
+
   const indirim = Math.max(0, Math.min(option.indirim || 0, satisOnce));
   const araToplam = satisOnce - indirim;
   const adim = ayar.yuvarlamaTL > 0 ? Math.round(ayar.yuvarlamaTL * 100) : 0;
@@ -363,6 +424,10 @@ export function calcOption(
     id: option.id,
     ad: option.ad,
     mekanlar,
+    giderler,
+    giderMaliyet,
+    giderSatis,
+    adamGun,
     maliyet,
     malzemeMaliyet,
     iscilikMaliyet,

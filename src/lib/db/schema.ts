@@ -5,6 +5,7 @@ import type {
   Customer,
   Delivery,
   Expense,
+  GiderTanimi,
   ExtraJob,
   Handover,
   LaborType,
@@ -24,6 +25,7 @@ import type {
 export class EvikoDB extends Dexie {
   products!: EntityTable<Product, "id">;
   cabinets!: EntityTable<Cabinet, "id">;
+  giderler!: EntityTable<GiderTanimi, "id">;
   labor!: EntityTable<LaborType, "id">;
   templates!: EntityTable<WorkTemplate, "id">;
   customers!: EntityTable<Customer, "id">;
@@ -58,6 +60,11 @@ export class EvikoDB extends Dexie {
     });
     this.version(2).stores({
       cabinets: "id, ad, aktif",
+    });
+    this.version(3).stores({
+      giderler: "id, aktif",
+      expenses: "id, projectId, tarih, tedarikci",
+      payments: "id, projectId, tarih",
     });
   }
 }

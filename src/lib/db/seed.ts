@@ -1,4 +1,5 @@
-import type { Birim, LaborType, LineDef, MekanTuru, Settings, WorkTemplate } from "../types";
+import type { Birim, GiderTanimi, LaborType, LineDef, MekanTuru, Product, Settings, WorkTemplate } from "../types";
+import type { EvikoDB } from "./schema";
 import { uid } from "./ids";
 
 export function defaultSettings(): Settings {
@@ -235,3 +236,57 @@ export function defaultTemplates(): WorkTemplate[] {
     sira: i + 1,
   }));
 }
+
+
+/** Günlük giderler. Tutarlar Fiyat Listesi > Giderler sekmesinden değiştirilir. */
+export function defaultGiderler(): GiderTanimi[] {
+  return [
+    { id: "gider-yemek", ad: "Yemek", birim: "kisiGun", tutar: 30000, yansit: true, aktif: true },
+    { id: "gider-benzin", ad: "Benzin", birim: "gun", tutar: 50000, yansit: true, aktif: true },
+  ];
+}
+
+export interface Migration {
+  id: string;
+  run: (db: EvikoDB) => Promise<void>;
+}
+
+const seramik60x120 = (id: string, tedarikci: string, liraTL: number): Product => ({
+  id,
+  tedarikci,
+  kategori: "Seramik",
+  kod: "",
+  ad: `${tedarikci} Seramik 60x120`,
+  birim: "m2",
+  netAlis: Math.round(liraTL * 100),
+  ebat: "60x120",
+  aktif: true,
+  guncellendi: new Date().toISOString(),
+});
+
+export const MIGRATIONS: Migration[] = [
+  {
+    // 15.10.2026: seramik m² fiyatları (60x120) ve usta yevmiyeleri
+    id: "2026-10-15-fiyat-ve-yevmiye",
+    run: async (db) => {
+      const fiyatlar: Array<[string, string, number]> = [
+        ["fiyat-vitra-60x120", "Vitra", 1150],
+        ["fiyat-mcm-60x120", "MCM", 750],
+        ["fiyat-kale-60x120", "Kale", 1600],
+      ];
+      for (const [id, ted, tl] of fiyatlar) {
+        const var_ = await db.products.get(id);
+        await db.products.put(var_ ? { ...var_, netAlis: Math.round(tl * 100), guncellendi: new Date().toISOString() } : seramik60x120(id, ted, tl));
+      }
+      // Yevmiyeler (TL/gün): usta 5.000, tesisatçı 3.000, amele (yardımcı işçi) 2.000
+      const yevmiye: Record<string, number> = { "usta-1": 5000, "usta-2": 3000, "usta-4": 5000, "usta-6": 5000, "usta-7": 2000 };
+      for (const [id, tl] of Object.entries(yevmiye)) {
+        const l = await db.labor.get(id);
+        if (l) await db.labor.update(id, { yevmiye: tl * 100 });
+      }
+      // Amele adını netleştir
+      const amele = await db.labor.get("usta-7");
+      if (amele && amele.ad === "Yardımcı işçi") await db.labor.update("usta-7", { ad: "Amele (yardımcı işçi)" });
+    },
+  },
+];

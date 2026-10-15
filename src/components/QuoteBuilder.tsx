@@ -349,6 +349,9 @@ export function SummaryPanel(props: { quote: Quote; catalog: Catalog; optionId: 
         <div className="space-y-1 rounded-xl bg-navy-50 p-3 text-sm">
           <div className="flex justify-between"><span className="text-navy-500">Malzeme maliyeti</span><span>{formatTL(r.malzemeMaliyet)}</span></div>
           <div className="flex justify-between"><span className="text-navy-500">İşçilik maliyeti</span><span>{formatTL(r.iscilikMaliyet)}</span></div>
+          {r.giderler.map((g) => (
+            <div key={g.id} className="flex justify-between"><span className="text-navy-500">{g.ad} <span className="text-xs text-navy-400">({formatSayi(g.miktar)}{g.birim === "sabit" ? "" : g.birim === "kisiGun" ? " adam-gün" : " gün"} × {formatTL(g.birimTutar)})</span></span><span>{formatTL(g.maliyet)}</span></div>
+          ))}
           <div className="flex justify-between font-semibold"><span>Toplam maliyet</span><span>{formatTL(r.maliyet)}</span></div>
           <div className={cx("flex justify-between font-bold", r.kar < 0 ? "text-red-700" : "text-emerald-700")}><span>Kâr</span><span>{formatTL(r.kar)} · %{formatSayi(r.karYuzde, 1)}</span></div>
         </div>
@@ -362,7 +365,7 @@ export function SummaryPanel(props: { quote: Quote; catalog: Catalog; optionId: 
   );
 }
 
-export function QuoteSettingsPanel({ quote }: { quote: Quote }) {
+export function QuoteSettingsPanel({ quote, giderler }: { quote: Quote; giderler?: Array<{ id: string; ad: string }> }) {
   const readOnly = quote.durum !== "taslak";
   const edit = (fn: (q: Quote) => void) => updateQuote(quote.id, fn);
   return (
@@ -380,6 +383,15 @@ export function QuoteSettingsPanel({ quote }: { quote: Quote }) {
         <div className="flex items-end"><Toggle disabled={readOnly} checked={quote.mekanToplamGoster} onChange={(v) => edit((q) => (q.mekanToplamGoster = v))} label="Mekan toplamlarını göster" /></div>
         <div className="flex items-end"><Toggle disabled={readOnly} checked={!!quote.krokiGoster} onChange={(v) => edit((q) => (q.krokiGoster = v))} label="Çıktıya kroki ekle" /></div>
       </div>
+      {giderler && giderler.length > 0 && (
+        <div className="flex flex-wrap items-center gap-x-5 border-t border-navy-100 pt-3">
+          <span className="text-xs font-semibold uppercase tracking-wide text-navy-500">Giderler</span>
+          {giderler.map((g) => (
+            <Toggle key={g.id} disabled={readOnly} checked={!(quote.giderKapali ?? []).includes(g.id)} onChange={(v) => edit((q) => { const k = new Set(q.giderKapali ?? []); if (v) k.delete(g.id); else k.add(g.id); q.giderKapali = Array.from(k); })} label={g.ad} />
+          ))}
+          <span className="text-xs text-navy-400">Yemek adam-gün ile, benzin "Teslim süresi (iş günü)" ile hesaplanır.</span>
+        </div>
+      )}
       <div className="grid gap-3 border-t border-navy-100 pt-4 sm:grid-cols-2 lg:grid-cols-4">
         <Field label="Malzeme kârı"><NumField disabled={readOnly} suffix="%" value={quote.ayarlar.karMalzemeYuzde} onChange={(v) => edit((q) => (q.ayarlar.karMalzemeYuzde = v ?? 0))} /></Field>
         <Field label="İşçilik kârı"><NumField disabled={readOnly} suffix="%" value={quote.ayarlar.karIscilikYuzde} onChange={(v) => edit((q) => (q.ayarlar.karIscilikYuzde = v ?? 0))} /></Field>
