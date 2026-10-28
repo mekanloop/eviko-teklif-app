@@ -4,6 +4,7 @@ import { CalendarDays, FileText, FolderKanban, LayoutDashboard, Settings, Tags, 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import { BackupFab } from "./BackupFab";
 import { cx } from "./ui";
 
 const NAV = [
@@ -57,6 +58,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </nav>
       </aside>
 
+      <BackupFab />
       <main className="mx-auto max-w-[1280px] px-4 pb-28 pt-5 sm:px-6 md:pb-10 md:pt-7">{children}</main>
 
       {/* Alt menü (telefon) */}
