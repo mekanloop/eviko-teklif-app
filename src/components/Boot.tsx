@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { ensureSeed } from "@/lib/data/actions";
+import { onbellekTemizle, parcaHatasiKurtar } from "@/lib/data/cache-reset";
 
 /** Veritabanını hazırlar (ilk açılışta varsayılanlar), servis çalışanını kaydeder. */
 export function Boot({ children }: { children: ReactNode }) {
@@ -9,6 +10,7 @@ export function Boot({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    parcaHatasiKurtar();
     ensureSeed()
       .then(() => setReady(true))
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
@@ -17,7 +19,7 @@ export function Boot({ children }: { children: ReactNode }) {
       void navigator.storage?.persist?.();
     } catch {}
     if (process.env.NODE_ENV === "production" && "serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js").catch(() => {});
+      navigator.serviceWorker.register("/sw.js").then((r) => r.update()).catch(() => {});
     }
   }, []);
 

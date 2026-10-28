@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 import { StringListEditor } from "@/components/QuoteBuilder";
 import { Field, Loading, NumField, PageHeader, TextArea, TextInput } from "@/components/ui";
 import { saveSettings } from "@/lib/data/actions";
+import { onbellekTemizle } from "@/lib/data/cache-reset";
 import { exportBackup, importBackup, type BackupFile } from "@/lib/data/backup";
 import { loadDemo, removeDemo } from "@/lib/data/demo";
 import { useSettings } from "@/lib/data/hooks";
@@ -135,6 +136,10 @@ export default function SettingsPage() {
             <button className="btn btn-ghost" disabled={busy} onClick={() => fileRef.current?.click()}><Upload size={18} /> Yedekten geri yükle</button>
             <input ref={fileRef} type="file" accept="application/json,.json" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) void yedekYukle(f); e.target.value = ""; }} />
           </div>
+        </Section>
+
+        <Section title="Uygulama önbelleği" sub="Sayfalar açılmıyor, menü eski görünüyor veya düğmeler çalışmıyorsa uygulama dosyası önbelleğini yenileyin. Müşteri, proje, teklif ve fiyat verilerinize DOKUNMAZ.">
+          <button className="btn btn-ghost" onClick={async () => { await onbellekTemizle(); alert("Önbellek temizlendi. Uygulama yeniden yüklenecek; verileriniz yerinde."); location.reload(); }}>Önbelleği yenile (verilere dokunmaz)</button>
         </Section>
 
         <Section title="Örnek veri" sub="Uygulamayı denemek için uydurma fiyatlı örnek ürünler, yevmiyeler ve bir örnek teklif ekler. Gerçek veriniz etkilenmez; istediğiniz an silebilirsiniz.">
