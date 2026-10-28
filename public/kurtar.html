@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Eviko — Veri Kurtarma</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,Helvetica,Arial,sans-serif;background:#f1f4f9;color:#1b2a4a}
+  .w{max-width:760px;margin:0 auto;padding:20px 16px 60px}
+  h1{font-size:22px;margin:8px 0 4px}
+  p{line-height:1.5;color:#44608f;margin:6px 0}
+  .k{background:#fff;border-radius:16px;padding:16px;margin:14px 0;box-shadow:0 2px 12px rgba(19,31,56,.08)}
+  button,a.b{display:block;width:100%;margin:8px 0;padding:16px;border:0;border-radius:14px;font-size:17px;font-weight:700;text-align:center;text-decoration:none;cursor:pointer;background:#1b2a4a;color:#fff}
+  button.g,a.g{background:#e1e7f1;color:#1b2a4a}
+  button.t{background:#b08d57}
+  textarea{width:100%;height:180px;font-size:13px;font-family:Menlo,monospace;border:1px solid #c3cfe2;border-radius:10px;padding:10px}
+  .ok{color:#047857;font-weight:700}.er{color:#b91c1c;font-weight:700}
+  #durum{font-size:16px;margin:8px 0;min-height:24px}
+  small{color:#6580ad}
+</style>
+</head>
+<body>
+<div class="w">
+  <h1>Veri Kurtarma</h1>
+  <p>Bu sayfa tek başına çalışır. Bu cihazdaki Eviko verilerinizi (müşteri, proje, teklif, fiyat) <b>yalnızca okur ve yedeğini çıkarır</b>. Hiçbir şeyi silmez veya değiştirmez.</p>
+
+  <div class="k">
+    <div id="durum">Veriler aranıyor…</div>
+    <button id="indir" disabled>1) Yedeği dosya olarak indir</button>
+    <button id="kopya" class="t" disabled>2) Yedeği panoya kopyala</button>
+    <button id="goster" class="g" disabled>3) Yedeği metin olarak göster (elle kopyalamak için)</button>
+    <div id="alan" style="display:none">
+      <textarea id="metin" readonly></textarea>
+      <button id="sec" class="g">Tümünü seç</button>
+      <small>Metne uzun basın → "Tümünü Seç" → "Kopyala". Sonra Notlar uygulamasına yapıştırıp kendinize gönderin.</small>
+    </div>
+  </div>
+
+  <div class="k">
+    <b>Sayfalar açılmıyorsa</b>
+    <p>Aşağıdaki düğme uygulamanın <b>önbelleğini</b> ve servis çalışanını temizler. Müşteri/proje verisine dokunmaz. Yedeğinizi aldıktan sonra kullanın.</p>
+    <button id="temizle" class="g">Önbelleği temizle (veriye dokunmaz)</button>
+    <a class="b g" href="/">Uygulamaya git</a>
+  </div>
+</div>
+
+<script>
+(function () {
+  var DB = "eviko-teklif";
+  var yedekMetin = null;
+  var $ = function (id) { return document.getElementById(id); };
+  function durum(t, c) { var d = $("durum"); d.textContent = t; d.className = c || ""; }
+
+  function dbVarMi() {
+    if (indexedDB.databases) {
+      return indexedDB.databases().then(function (l) { return l.some(function (x) { return x.name === DB; }); });
+    }
+    return Promise.resolve(true);
+  }
+
+  function ac() {
+    return new Promise(function (res, rej) {
+      var r = indexedDB.open(DB);
+      var yeniOlustu = false;
+      r.onupgradeneeded = function () { yeniOlustu = true; try { r.transaction.abort(); } catch (e) {} };
+      r.onsuccess = function () { res(r.result); };
+      r.onerror = function () { rej(yeniOlustu ? new Error("Bu tarayıcıda Eviko verisi yok.") : r.error); };
+      r.onblocked = function () { rej(new Error("Veritabanı başka bir sekme tarafından kilitlenmiş. Diğer Eviko sekmelerini kapatın.")); };
+    });
+  }
+
+  function oku(db, ad) {
+    return new Promise(function (res, rej) {
+      var q = db.transaction(ad).objectStore(ad).getAll();
+      q.onsuccess = function () { res(q.result); };
+      q.onerror = function () { rej(q.error); };
+    });
+  }
+
+  function blobData(b) {
+    return new Promise(function (res) { var f = new FileReader(); f.onload = function () { res(f.result); }; f.readAsDataURL(b); });
+  }
+
+  function hazirla() {
+    return dbVarMi().then(function (var_) {
+      if (!var_) throw new Error("Bu tarayıcıda Eviko verisi bulunamadı. Verileri girdiğiniz tarayıcıdan (Safari / ana ekran uygulaması) açın.");
+      return ac();
+    }).then(function (db) {
+      var adlar = Array.prototype.slice.call(db.objectStoreNames);
+      var T = {};
+      var p = Promise.resolve();
+      adlar.forEach(function (n) {
+        p = p.then(function () { return oku(db, n); }).then(function (rows) {
+          if (n === "files") {
+            return Promise.all(rows.map(function (x) { return x.blob instanceof Blob ? blobData(x.blob).then(function (d) { x.blob = d; }) : null; })).then(function () { T[n] = rows; });
+          }
+          T[n] = rows;
+        });
+      });
+      return p.then(function () {
+        var out = { uygulama: "eviko-teklif", surum: 1, tarih: new Date().toISOString(), tablolar: T };
+        yedekMetin = JSON.stringify(out);
+        var s = (T.customers || []).length + " müşteri, " + (T.projects || []).length + " proje, " + (T.quotes || []).length + " teklif, " + (T.products || []).length + " ürün";
+        durum("Hazır: " + s, "ok");
+        ["indir", "kopya", "goster"].forEach(function (i) { $(i).disabled = false; });
+      });
+    });
+  }
+
+  $("indir").onclick = function () {
+    try {
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([yedekMetin], { type: "application/json" }));
+      a.download = "eviko-yedek-" + new Date().toISOString().slice(0, 10) + ".json";
+      document.body.appendChild(a); a.click(); a.remove();
+      durum("İndirme başlatıldı. İndirilenler'e bakın. İnmezse 2) veya 3) seçeneğini kullanın.", "ok");
+    } catch (e) { durum("İndirilemedi: " + e.message + " — 3) seçeneğini kullanın.", "er"); }
+  };
+  $("kopya").onclick = function () {
+    var t = $("metin"); $("alan").style.display = "block"; t.value = yedekMetin;
+    var ok = false;
+    try { t.focus(); t.select(); t.setSelectionRange(0, t.value.length); ok = document.execCommand("copy"); } catch (e) {}
+    if (!ok && navigator.clipboard) { navigator.clipboard.writeText(yedekMetin).then(function () { durum("Panoya kopyalandı. Notlar'a yapıştırın.", "ok"); }, function () { durum("Kopyalanamadı; aşağıdaki metni elle seçip kopyalayın.", "er"); }); }
+    else durum(ok ? "Panoya kopyalandı. Notlar'a yapıştırın." : "Kopyalanamadı; aşağıdaki metni elle seçip kopyalayın.", ok ? "ok" : "er");
+  };
+  $("goster").onclick = function () { $("alan").style.display = "block"; $("metin").value = yedekMetin; };
+  $("sec").onclick = function () { var t = $("metin"); t.focus(); t.select(); t.setSelectionRange(0, t.value.length); };
+  $("temizle").onclick = function () {
+    var p = [];
+    if (navigator.serviceWorker) p.push(navigator.serviceWorker.getRegistrations().then(function (r) { return Promise.all(r.map(function (x) { return x.unregister(); })); }));
+    if (window.caches) p.push(caches.keys().then(function (k) { return Promise.all(k.map(function (x) { return caches.delete(x); })); }));
+    Promise.all(p).then(function () { durum("Önbellek temizlendi. Verileriniz yerinde. Şimdi 'Uygulamaya git'e basın.", "ok"); }, function (e) { durum("Hata: " + e.message, "er"); });
+  };
+
+  hazirla().catch(function (e) { durum(e.message || String(e), "er"); });
+})();
+</script>
+</body>
+</html>
