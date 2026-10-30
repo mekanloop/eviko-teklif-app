@@ -237,4 +237,15 @@ describe("günlük giderler (yemek, benzin)", () => {
     expect(benzin.maliyet).toBe(0);
     expect(r.eksikFiyat).toBe(1);
   });
+  it("serbest tutarda KDV dahil/hariç toplamı doğru hesaplar", () => {
+    const serbest = { ...opt, serbestToplam: 10000000, serbestToplamKdvDahil: false };
+    const haric = calcOption({ ...q, kdvModu: "kdvli" }, serbest, catG);
+    expect(haric.net).toBe(10000000);
+    expect(haric.kdv).toBe(2000000);
+    expect(haric.genelToplam).toBe(12000000);
+    const dahil = calcOption({ ...q, kdvModu: "kdvli" }, { ...serbest, serbestToplamKdvDahil: true }, catG);
+    expect(dahil.genelToplam).toBe(10000000);
+    expect(dahil.net).toBe(8333333);
+    expect(dahil.kdv).toBe(1666667);
+  });
 });

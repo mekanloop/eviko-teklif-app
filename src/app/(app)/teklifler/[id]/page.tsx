@@ -67,7 +67,15 @@ export default function QuotePage() {
       const tutarlar = await extractMoneyCandidates(file);
       await getDb().files.put({ id: uid(), projectId, ad: file.name, tur: file.type || "application/pdf", boyut: file.size, tarih: nowIso(), blob: file });
       if (!tutarlar.length) setPdfError("PDF'de TL/₺ ile yazılmış bir tutar bulunamadı. Tutarı elle girebilirsiniz.");
-      else setPdfCandidates(tutarlar);
+      else {
+        const otomatik = tutarlar[0];
+        setPdfCandidates(tutarlar);
+        // Belgedeki en yüksek TL/₺ tutarı varsayılan toplam olarak yazılır; kullanıcı isterse aşağıdan değiştirir.
+        await updateQuote(quote.id, (q) => {
+          const o = q.secenekler.find((v) => v.id === optionId) ?? q.secenekler[0];
+          if (o) { o.serbestToplam = otomatik.tutar; o.serbestToplamKdvDahil = true; o.kaynakPdf = { ad: file.name, tarih: nowIso() }; }
+        });
+      }
     } catch (e) { setPdfError(e instanceof Error ? e.message : "PDF okunamadı. Tutarı elle girebilirsiniz."); }
     finally { setPdfBusy(false); if (pdfRef.current) pdfRef.current.value = ""; }
   }
@@ -177,15 +185,16 @@ export default function QuotePage() {
             <div className="card space-y-3 p-4">
               <div>
                 <div className="font-semibold text-navy-800">Serbest toplam teklif</div>
-                <p className="text-sm text-navy-500">Kalem hesabı yerine müşteriye sunacağınız nihai toplamı girin. PDF içe aktarma sadece tutar önerir; tutarı siz seçmeden kaydetmez.</p>
+                <p className="text-sm text-navy-500">Kalem hesabı yerine müşteriye sunacağınız tutarı girin. KDV dahil seçilmezse KDV ayrıca hesaplanır. PDF'de bulunan en yüksek TL/₺ tutarı otomatik uygulanır; aşağıdan değiştirebilirsiniz.</p>
               </div>
               <div className="grid gap-3 sm:grid-cols-[220px_auto] sm:items-end">
-                <Field label="Nihai teklif toplamı"><MoneyField value={aktifOpt.serbestToplam ?? 0} onChange={(v) => edit((q) => { const o = q.secenekler.find((x) => x.id === aktifOpt.id); if (o) o.serbestToplam = v > 0 ? v : undefined; })} placeholder="Örn. 150.000" /></Field>
+                <Field label={quote.kdvModu === "kdvli" && !aktifOpt.serbestToplamKdvDahil ? "KDV hariç teklif tutarı" : "Nihai teklif toplamı"}><MoneyField value={aktifOpt.serbestToplam ?? 0} onChange={(v) => edit((q) => { const o = q.secenekler.find((x) => x.id === aktifOpt.id); if (o) o.serbestToplam = v > 0 ? v : undefined; })} placeholder="Örn. 150.000" /></Field>
                 <div className="flex flex-wrap gap-2"><button className="btn btn-ghost" onClick={() => pdfRef.current?.click()} disabled={pdfBusy}><Upload size={16} /> {pdfBusy ? "PDF okunuyor…" : "PDF yükle ve tutarları bul"}</button>{aktifOpt.serbestToplam != null && <button className="btn btn-ghost" onClick={() => edit((q) => { const o = q.secenekler.find((x) => x.id === aktifOpt.id); if (o) { o.serbestToplam = undefined; o.kaynakPdf = undefined; } })}>Kalem hesabına dön</button>}</div>
               </div>
               <input ref={pdfRef} type="file" accept="application/pdf,.pdf" hidden onChange={(e) => { void pdfOku(e.target.files?.[0]); }} />
+              {quote.kdvModu === "kdvli" && aktifOpt.serbestToplam != null && <label className="flex items-center gap-2 text-sm text-navy-700"><input type="checkbox" checked={aktifOpt.serbestToplamKdvDahil === true} onChange={(e) => edit((q) => { const o = q.secenekler.find((x) => x.id === aktifOpt.id); if (o) o.serbestToplamKdvDahil = e.target.checked; })} /> Girilen tutar KDV dahil <span className="text-navy-400">({aktifOpt.serbestToplamKdvDahil ? "tutar doğrudan müşteriye gösterilir" : `+ KDV ile ${formatTL(calcOption(quote, aktifOpt, catalog).genelToplam)}`})</span></label>}
               {pdfError && <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">{pdfError}</div>}
-              {pdfCandidates.length > 0 && <div className="rounded-xl bg-navy-50 p-3 text-sm"><b>PDF'den bulunan tutarlar:</b><div className="mt-2 flex flex-wrap gap-2">{pdfCandidates.map((x) => <button key={x.tutar} className="btn btn-ghost btn-sm" onClick={() => edit((q) => { const o = q.secenekler.find((v) => v.id === aktifOpt.id); if (o) { o.serbestToplam = x.tutar; o.kaynakPdf = { ad: "Yüklenen PDF", tarih: nowIso() }; } })}>{formatTL(x.tutar)} kullan</button>)}</div><p className="mt-2 text-xs text-navy-500">Belgedeki her tutar listelenir; doğru nihai toplamı seçmeden teklif değişmez.</p></div>}
+              {pdfCandidates.length > 0 && <div className="rounded-xl bg-navy-50 p-3 text-sm"><b>PDF'den bulunan tutarlar:</b><div className="mt-2 flex flex-wrap gap-2">{pdfCandidates.map((x) => <button key={x.tutar} className="btn btn-ghost btn-sm" onClick={() => edit((q) => { const o = q.secenekler.find((v) => v.id === aktifOpt.id); if (o) { o.serbestToplam = x.tutar; o.serbestToplamKdvDahil = true; o.kaynakPdf = { ad: "Yüklenen PDF", tarih: nowIso() }; } })}>{formatTL(x.tutar)} kullan</button>)}</div><p className="mt-2 text-xs text-navy-500">En yüksek tutar otomatik uygulanır. Bir ara toplam seçildiyse buradan doğru tutarı seçebilirsiniz.</p></div>}
             </div>
           )}
 

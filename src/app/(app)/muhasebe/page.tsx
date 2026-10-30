@@ -68,12 +68,13 @@ export default function AccountingPage() {
       const f = projectFinance(res, extras.filter((e) => e.projectId === p.id), payments.filter((x) => x.projectId === p.id), expenses.filter((x) => x.projectId === p.id));
       return { p, ad: projAd(p.id), f, onayli: !!q };
     });
-    const genelGider = expenses.filter((e) => !e.projectId).reduce((a, e) => a + e.tutar, 0);
-    return { projAd, pd, ed, isler, genelGider };
+    const genelGider = expenses.filter((e) => !e.projectId && e.kategori !== "kisisel").reduce((a, e) => a + e.tutar, 0);
+    const kisiselGider = expenses.filter((e) => e.kategori === "kisisel").reduce((a, e) => a + e.tutar, 0);
+    return { projAd, pd, ed, isler, genelGider, kisiselGider };
   }, [payments, expenses, projects, customers, quotes, extras, catalog, bas, son]);
 
   if (!veri || !projects || !payments || !expenses) return <Loading />;
-  const { projAd, pd, ed, isler, genelGider } = veri;
+  const { projAd, pd, ed, isler, genelGider, kisiselGider } = veri;
   const toplamAlinan = pd.reduce((a, p) => a + p.tutar, 0);
   const toplamOdenen = ed.reduce((a, e) => a + e.tutar, 0);
 
@@ -134,9 +135,10 @@ export default function AccountingPage() {
             <Stat label="Net kasa (alınan − yapılan)" value={formatTL(toplamAlinan - toplamOdenen)} tone={toplamAlinan - toplamOdenen >= 0 ? "good" : "warn"} />
             <Stat label="Tahsil edilecek (tüm işler)" value={formatTL(Math.max(0, isler.reduce((a, r) => a + (r.onayli ? r.f.kalan : 0), 0)))} sub="Onaylı işlerde kalan bakiye" />
           </div>
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-4">
             <Stat label="İşlerin toplam net kazancı" value={formatTL(isler.reduce((a, r) => a + (r.onayli ? r.f.gercekKar : 0), 0))} sub="Net satış − işlere yazılan harcamalar" />
             <Stat label="Genel giderler (işe bağlı olmayan)" value={formatTL(genelGider)} sub="Tüm zamanlar" />
+            <Stat label="Kişisel giderler" value={formatTL(kisiselGider)} sub="Kasadan çıkan, iş maliyetine yazılmayan" tone="warn" />
             <Stat label="Genel kasa (tüm zamanlar)" value={formatTL(payments.reduce((a, p) => a + p.tutar, 0) - expenses.reduce((a, e) => a + e.tutar, 0))} sub="Tüm alınan − tüm yapılan" />
           </div>
           <div className="card overflow-hidden">

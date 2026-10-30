@@ -243,6 +243,8 @@ export interface QuoteOption {
   indirim: Kurus;
   /** Kalem hesabı yerine müşteriye doğrudan sunulan nihai toplam (kuruş). */
   serbestToplam?: Kurus;
+  /** Serbest tutar nihai/KDV dahil yazıldıysa true; değilse KDV ayrıca hesaplanır. */
+  serbestToplamKdvDahil?: boolean;
   /** Serbest toplam bir PDF'den doğrulanarak alındıysa kaynak bilgisi. */
   kaynakPdf?: { ad: string; tarih: string };
 }
@@ -425,13 +427,14 @@ export interface Handover {
   imza?: string;
 }
 
-export type GiderKategori = "malzeme" | "iscilik" | "nakliye" | "yemek" | "yakit" | "diger";
+export type GiderKategori = "malzeme" | "iscilik" | "nakliye" | "yemek" | "yakit" | "kisisel" | "diger";
 export const GIDER_KATEGORI_ETIKET: Record<GiderKategori, string> = {
   malzeme: "Malzeme",
   iscilik: "İşçilik / usta",
   nakliye: "Nakliye / moloz",
   yemek: "Yemek",
   yakit: "Benzin / yakıt",
+  kisisel: "Kişisel gider",
   diger: "Diğer",
 };
 
