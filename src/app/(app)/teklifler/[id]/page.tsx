@@ -1,13 +1,13 @@
 "use client";
 
-import { ArrowLeft, Check, Copy, FileDown, GitBranch, Plus, RotateCcw, Send, Sparkles, Trash2, X } from "lucide-react";
+import { ArrowLeft, Check, Copy, FileDown, GitBranch, Plus, RotateCcw, Send, Sparkles, Trash2, Upload, X } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { QuoteBadge } from "@/components/badges";
 import { PromptModal } from "@/components/PromptModal";
 import { QuoteBuilder, QuoteSettingsPanel, StringListEditor, SummaryPanel, cloneOptionAs } from "@/components/QuoteBuilder";
-import { Badge, Loading, Modal, MoneyField, NumField, PageHeader, Tabs, TextInput, cx } from "@/components/ui";
+import { Badge, Field, Loading, Modal, MoneyField, NumField, PageHeader, Tabs, TextInput, cx } from "@/components/ui";
 import { approveQuote, deleteQuote, rejectQuote, reopenQuote, reviseQuote, sendQuote, updateQuote } from "@/lib/data/actions";
 import { useCabinets, useCatalog, useCustomer, useLabor, useProducts, useProject, useProjectQuotes, useQuote, useTemplates } from "@/lib/data/hooks";
 import { quoteTitle } from "@/lib/data/quote-ops";
@@ -15,6 +15,9 @@ import { calcOption } from "@/lib/engine/calc";
 import { formatTL } from "@/lib/engine/money";
 import { formatTarih } from "@/lib/engine/text";
 import { uid } from "@/lib/db/ids";
+import { nowIso } from "@/lib/db/ids";
+import { getDb } from "@/lib/db/schema";
+import { extractMoneyCandidates, type MoneyCandidate } from "@/lib/pdf/extract-money";
 import type { Quote } from "@/lib/types";
 
 function kalemAnahtarlari(q: Quote): Set<string> {
@@ -42,6 +45,10 @@ export default function QuotePage() {
   const [secim, setSecim] = useState("");
   const [tab, setTab] = useState<"kapsam" | "metinler" | "revizeler">("kapsam");
   const [promptAcik, setPromptAcik] = useState(false);
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const [pdfError, setPdfError] = useState("");
+  const [pdfCandidates, setPdfCandidates] = useState<MoneyCandidate[]>([]);
+  const pdfRef = useRef<HTMLInputElement>(null);
 
   const seri = useMemo(() => (siblings && quote ? siblings.filter((s) => s.rootId === quote.rootId).sort((a, b) => a.revNo - b.revNo) : []), [siblings, quote]);
 
@@ -50,6 +57,20 @@ export default function QuotePage() {
   const aktifOpt = quote.secenekler.find((o) => o.id === optionId) ?? quote.secenekler[0];
   const edit = (fn: (q: Quote) => void) => updateQuote(quote.id, fn);
   const results = quote.secenekler.map((o) => calcOption(quote, o, catalog));
+
+  async function pdfOku(file: File | undefined) {
+    if (!file || readOnly) return;
+    const projectId = quote?.projectId;
+    if (!projectId) return;
+    setPdfBusy(true); setPdfError(""); setPdfCandidates([]);
+    try {
+      const tutarlar = await extractMoneyCandidates(file);
+      await getDb().files.put({ id: uid(), projectId, ad: file.name, tur: file.type || "application/pdf", boyut: file.size, tarih: nowIso(), blob: file });
+      if (!tutarlar.length) setPdfError("PDF'de TL/₺ ile yazılmış bir tutar bulunamadı. Tutarı elle girebilirsiniz.");
+      else setPdfCandidates(tutarlar);
+    } catch (e) { setPdfError(e instanceof Error ? e.message : "PDF okunamadı. Tutarı elle girebilirsiniz."); }
+    finally { setPdfBusy(false); if (pdfRef.current) pdfRef.current.value = ""; }
+  }
 
   function uyarilar(): string[] {
     const u: string[] = [];
@@ -149,6 +170,22 @@ export default function QuotePage() {
               {quote.secenekler.length > 1 && (
                 <button className="btn btn-danger btn-sm" onClick={() => confirm(`"${aktifOpt.ad}" seçeneği silinsin mi?`) && (edit((q) => (q.secenekler = q.secenekler.filter((x) => x.id !== aktifOpt.id))), setOptionId(""))}><Trash2 size={14} /> Seçeneği sil</button>
               )}
+            </div>
+          )}
+
+          {!readOnly && (
+            <div className="card space-y-3 p-4">
+              <div>
+                <div className="font-semibold text-navy-800">Serbest toplam teklif</div>
+                <p className="text-sm text-navy-500">Kalem hesabı yerine müşteriye sunacağınız nihai toplamı girin. PDF içe aktarma sadece tutar önerir; tutarı siz seçmeden kaydetmez.</p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-[220px_auto] sm:items-end">
+                <Field label="Nihai teklif toplamı"><MoneyField value={aktifOpt.serbestToplam ?? 0} onChange={(v) => edit((q) => { const o = q.secenekler.find((x) => x.id === aktifOpt.id); if (o) o.serbestToplam = v > 0 ? v : undefined; })} placeholder="Örn. 150.000" /></Field>
+                <div className="flex flex-wrap gap-2"><button className="btn btn-ghost" onClick={() => pdfRef.current?.click()} disabled={pdfBusy}><Upload size={16} /> {pdfBusy ? "PDF okunuyor…" : "PDF yükle ve tutarları bul"}</button>{aktifOpt.serbestToplam != null && <button className="btn btn-ghost" onClick={() => edit((q) => { const o = q.secenekler.find((x) => x.id === aktifOpt.id); if (o) { o.serbestToplam = undefined; o.kaynakPdf = undefined; } })}>Kalem hesabına dön</button>}</div>
+              </div>
+              <input ref={pdfRef} type="file" accept="application/pdf,.pdf" hidden onChange={(e) => { void pdfOku(e.target.files?.[0]); }} />
+              {pdfError && <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">{pdfError}</div>}
+              {pdfCandidates.length > 0 && <div className="rounded-xl bg-navy-50 p-3 text-sm"><b>PDF'den bulunan tutarlar:</b><div className="mt-2 flex flex-wrap gap-2">{pdfCandidates.map((x) => <button key={x.tutar} className="btn btn-ghost btn-sm" onClick={() => edit((q) => { const o = q.secenekler.find((v) => v.id === aktifOpt.id); if (o) { o.serbestToplam = x.tutar; o.kaynakPdf = { ad: "Yüklenen PDF", tarih: nowIso() }; } })}>{formatTL(x.tutar)} kullan</button>)}</div><p className="mt-2 text-xs text-navy-500">Belgedeki her tutar listelenir; doğru nihai toplamı seçmeden teklif değişmez.</p></div>}
             </div>
           )}
 

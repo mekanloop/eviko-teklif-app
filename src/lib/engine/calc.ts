@@ -331,6 +331,13 @@ export function calcOption(
   option: QuoteOption,
   live: Catalog,
 ): OptionResult {
+  // Serbest teklif: girilen tutar nihai müşteri toplamıdır; kalem/kâr hesabı yapılmaz.
+  if (option.serbestToplam != null) {
+    const genelToplam = Math.max(0, option.serbestToplam);
+    const net = quote.kdvModu === "kdvli" ? Math.round((genelToplam * 100) / (100 + quote.kdvOrani)) : genelToplam;
+    const kdv = genelToplam - net;
+    return { id: option.id, ad: option.ad, mekanlar: [], giderler: [], giderMaliyet: 0, giderSatis: 0, adamGun: 0, maliyet: 0, malzemeMaliyet: 0, iscilikMaliyet: 0, satisOnce: net, indirim: 0, yuvarlamaFarki: 0, net, kdv, genelToplam, kar: 0, karYuzde: 0, eksikFiyat: 0 };
+  }
   const cat = catalogFor(quote.dondurulmus, live);
   const ayar: QuoteSettingsLike = {
     karMalzemeYuzde: quote.ayarlar.karMalzemeYuzde,

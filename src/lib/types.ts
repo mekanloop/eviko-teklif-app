@@ -241,6 +241,10 @@ export interface QuoteOption {
   mekanlar: Mekan[];
   /** Pazarlık / indirim (kuruş), satış toplamından düşülür */
   indirim: Kurus;
+  /** Kalem hesabı yerine müşteriye doğrudan sunulan nihai toplam (kuruş). */
+  serbestToplam?: Kurus;
+  /** Serbest toplam bir PDF'den doğrulanarak alındıysa kaynak bilgisi. */
+  kaynakPdf?: { ad: string; tarih: string };
 }
 
 export type QuoteTuru = "on" | "kesin";
